@@ -1,0 +1,35 @@
+services:
+  # ======================
+  # PostgreSQL Database
+  # ======================
+  servctl-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: Servctl
+      POSTGRES_USER: developer
+      POSTGRES_PASSWORD: masterkey
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - servctl_db_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U developer -d Servctl"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - servctl-network
+
+volumes:
+  servctl_db_data:
+    driver: local
+
+networks:
+  servctl-network:
+    driver: bridge
+  shared-network:
+    external: true

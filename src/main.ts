@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 
@@ -24,6 +25,31 @@ async function bootstrap() {
     }),
   );
 
+  // Swagger configuration
+  const config = new DocumentBuilder()
+    .setTitle('SERVCTL API')
+    .setDescription('Server Control Panel SaaS API Documentation')
+    .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+      'JWT-auth',
+    )
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('servers', 'Server management endpoints')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'list',
+    },
+  });
+
   // Prisma shutdown hooks
   const prismaService = app.get(PrismaService);
   await prismaService.enableShutdownHooks(app);
@@ -31,6 +57,7 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   await app.listen(port, () => {
     console.log(`Server running on port ${port}`);
+    console.log(`Swagger documentation available at http://localhost:${port}/api/docs`);
   });
 }
 

@@ -2,6 +2,10 @@
 
 A production-ready NestJS backend for managing servers in a SaaS control panel application.
 
+## Architecture And Contribution Guide
+
+See `claude.md` for backend architecture, module boundaries, coding guidelines, and documentation policy.
+
 ## Tech Stack
 
 - **Framework**: NestJS 10

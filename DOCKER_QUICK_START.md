@@ -3,10 +3,12 @@
 ## Quick Start (Docker)
 
 ### Prerequisites
+
 - Docker and Docker Compose installed
 - Node.js 18+ (for running Prisma migrations)
 
 ### 1. Start PostgreSQL Database
+
 ```bash
 cd backend
 
@@ -18,6 +20,7 @@ docker compose exec -T servctl-db psql -U developer -d Servctl -c "SELECT NOW();
 ```
 
 ### 2. Configure Environment
+
 ```bash
 cp .env.example .env
 
@@ -26,6 +29,7 @@ cp .env.example .env
 ```
 
 ### 3. Initialize Database Schema
+
 ```bash
 # Install dependencies first
 npm install
@@ -38,6 +42,7 @@ npx prisma migrate deploy
 ```
 
 ### 4. Start NestJS Backend
+
 ```bash
 npm run start:dev
 ```
@@ -70,6 +75,7 @@ backend/
 ## Docker Commands
 
 ### Status & Logs
+
 ```bash
 # View running containers
 docker compose ps
@@ -82,6 +88,7 @@ docker compose logs servctl-db --tail 50
 ```
 
 ### Connect to Database
+
 ```bash
 # Interactive psql prompt
 docker compose exec servctl-db psql -U developer -d Servctl
@@ -94,6 +101,7 @@ SELECT * FROM "User";  # Query users table
 ```
 
 ### Restart & Reset
+
 ```bash
 # Restart containers
 docker compose restart
@@ -111,6 +119,7 @@ docker compose up -d
 ## Troubleshooting
 
 ### Database doesn't exist after startup
+
 ✅ **Solution**: The init script only runs on first initialization
 
 ```bash
@@ -120,6 +129,7 @@ docker compose up -d
 ```
 
 ### Connection refused
+
 ```bash
 # Check if container is running
 docker compose ps
@@ -133,6 +143,7 @@ docker compose exec -T servctl-db psql -U developer -d Servctl -c "SELECT NOW();
 ```
 
 ### Migrations fail to run
+
 ```bash
 # Ensure .env has correct database URL
 cat .env | grep DATABASE_URL
@@ -145,21 +156,26 @@ docker compose exec -T servctl-db psql -U developer -d postgres -c "\l"
 ```
 
 ### Port 5432 already in use
+
 Change the port in `docker-compose.yml`:
+
 ```yaml
 services:
   servctl-db:
     ports:
-      - "5433:5432"  # Use 5433 externally, 5432 internally
+      - '5433:5432' # Use 5433 externally, 5432 internally
 ```
 
 Update `.env`:
+
 ```
 DATABASE_URL=postgresql://developer:masterkey@localhost:5433/Servctl
 ```
 
 ### Permission denied on scripts
+
 On Linux/Mac:
+
 ```bash
 chmod +x scripts/init-db.sh
 ```
@@ -167,12 +183,14 @@ chmod +x scripts/init-db.sh
 ## Database Credentials
 
 Used in `docker-compose.yml`:
+
 - **Database Name**: Servctl
 - **Username**: developer
 - **Password**: masterkey
 - **Port**: 5432
 
 Connection string:
+
 ```
 postgresql://developer:masterkey@localhost:5432/Servctl
 ```
@@ -231,6 +249,7 @@ DATABASE_URL=postgresql://user:password@database-host:5432/servctl?sslmode=requi
 ```
 
 Docker Compose is for development only. For production:
+
 - Use managed database service
 - Run NestJS app on Vercel/Railway/Heroku
 - Never commit `.env` with production secrets

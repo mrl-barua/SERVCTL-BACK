@@ -1,20 +1,25 @@
 # Docker Database Initialization Guide
 
 ## Problem
+
 The PostgreSQL container was failing with:
+
 ```
 FATAL:  database "Servctl" does not exist
 ```
 
 This happens because:
+
 1. The `POSTGRES_DB` environment variable only creates the database on **first initialization**
 2. Once the volume has data, PostgreSQL skips initialization
 3. If the database doesn't exist in the volume, connection attempts fail
 
 ## Solution
+
 We've added automatic database initialization scripts that will create the database if it doesn't exist.
 
 ## Files Added
+
 - `scripts/init-db.sql` - SQL initialization script
 - `scripts/init-db.sh` - Shell initialization script (optional)
 - Updated `docker-compose.yml` with volume mount for init script
@@ -22,20 +27,25 @@ We've added automatic database initialization scripts that will create the datab
 ## How It Works
 
 ### For Fresh Starts (New Volume)
+
 When you run `docker compose up` with a new/fresh volume:
+
 1. PostgreSQL starts and initializes the cluster
 2. The init script in `/docker-entrypoint-initdb.d/` runs automatically
 3. The database "Servctl" is created if it doesn't exist
 4. Migrations can then be applied
 
 ### For Existing Volumes (Database Already Created)
+
 If the volume already exists with data but the database is missing:
+
 1. The init script won't run automatically (only runs on first init)
 2. You need to manually create the database
 
 ## Steps to Fix Existing Setup
 
 ### Option 1: Complete Fresh Start (RECOMMENDED)
+
 ```bash
 # Stop containers
 docker compose down
@@ -51,6 +61,7 @@ docker compose exec servctl-db psql -U developer -d Servctl -c "\l"
 ```
 
 ### Option 2: Keep Data, Create Database Manually
+
 ```bash
 # Connect to the database container
 docker compose exec servctl-db psql -U developer -d postgres
@@ -64,6 +75,7 @@ docker compose exec servctl-db psql -U developer -d Servctl -c "\l"
 ```
 
 ### Option 3: Reset Volume Only (Keep Container Running)
+
 ```bash
 # Stop and remove volume but keep data elsewhere (if needed)
 docker compose down
@@ -82,7 +94,7 @@ docker compose up -d
 docker compose exec servctl-db psql -U developer -d postgres -c "SELECT datname FROM pg_database WHERE datname='Servctl';"
 
 # Should output:
-#  datname 
+#  datname
 # ---------
 #  Servctl
 # (1 row)
@@ -106,6 +118,7 @@ npx prisma migrate dev --name init
 ## Auto-Initialization Details
 
 The init script:
+
 - ✅ Checks if database "Servctl" exists before creating
 - ✅ Won't fail if database already exists (idempotent)
 - ✅ Runs only on first PostgreSQL initialization
@@ -114,6 +127,7 @@ The init script:
 ## Connection String
 
 Once the database is created, you can use:
+
 ```
 DATABASE_URL=postgresql://developer:masterkey@localhost:5432/Servctl
 ```
@@ -121,9 +135,11 @@ DATABASE_URL=postgresql://developer:masterkey@localhost:5432/Servctl
 ## Troubleshooting
 
 ### Init script not running?
+
 This is expected if the volume already has data. Use one of the manual options above.
 
 ### Still getting "database does not exist"?
+
 ```bash
 # Force clean start
 docker compose down -v
@@ -134,12 +150,15 @@ docker compose logs servctl-db
 ```
 
 ### Permission denied on init script?
+
 On Linux/Mac, make it executable:
+
 ```bash
 chmod +x scripts/init-db.sh
 ```
 
 ### Want to see init script execution?
+
 ```bash
 docker compose logs servctl-db | grep -i "database\|servctl"
 ```
@@ -154,6 +173,7 @@ docker compose logs servctl-db | grep -i "database\|servctl"
 ## Environment Variables
 
 The database is configured with:
+
 - **Database Name**: Servctl
 - **Database User**: developer
 - **Database Password**: masterkey
@@ -161,6 +181,7 @@ The database is configured with:
 - **Image**: postgres:17-alpine (lightweight)
 
 Update these in `.env` if needed:
+
 ```env
 DATABASE_URL=postgresql://developer:masterkey@localhost:5432/Servctl
 POSTGRES_USER=developer

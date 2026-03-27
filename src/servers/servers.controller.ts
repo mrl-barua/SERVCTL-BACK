@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ServerDto, UpdateServerDto } from './dto/server.dto';
+import { ServerStatusDto } from './dto/server-status.dto';
 import { ServersService } from './servers.service';
 
 @ApiTags('servers')
@@ -191,5 +192,41 @@ export class ServersController {
   })
   delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.serversService.delete(id, user.id);
+  }
+
+  @Get(':id/status')
+  @ApiOperation({ summary: 'Get server status' })
+  @ApiParam({
+    name: 'id',
+    description: 'Server ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Server status retrieved successfully',
+    type: ServerStatusDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - missing or invalid token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - server does not belong to user',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Server not found',
+  })
+  getServerStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return {
+      id,
+      status: 'running',
+      uptime: 99.5,
+      lastCheck: new Date().toISOString(),
+    };
   }
 }

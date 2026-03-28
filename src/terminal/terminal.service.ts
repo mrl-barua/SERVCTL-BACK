@@ -85,7 +85,9 @@ export class TerminalService {
       sshKeyVaultId: server.sshKeyVaultId,
     });
 
-    const client = await this.openSshConnection(connectConfig as Record<string, any>);
+    const client = await this.openSshConnection(
+      connectConfig as Record<string, any>,
+    );
 
     this.sessions.set(socketId, {
       context,
@@ -269,75 +271,77 @@ export class TerminalService {
   }
 
   private executeSshCommand(client: Client, command: string) {
-    return new Promise<{ lines: string[]; exitCode: number }>((resolve, reject) => {
-      client.exec(command, (err, stream) => {
-        if (err) {
-          reject(new Error(`Failed to execute command: ${err.message}`));
-          return;
-        }
-
-        const lines: string[] = [];
-        let stdoutTail = '';
-        let stderrTail = '';
-        let settled = false;
-
-        const flushChunk = (chunk: string, target: 'stdout' | 'stderr') => {
-          const current = target === 'stdout' ? stdoutTail : stderrTail;
-          const merged = `${current}${chunk}`;
-          const parts = merged.split(/\r?\n/);
-
-          if (parts.length > 1) {
-            lines.push(...parts.slice(0, -1).filter(Boolean));
-          }
-
-          if (target === 'stdout') {
-            stdoutTail = parts[parts.length - 1] || '';
-          } else {
-            stderrTail = parts[parts.length - 1] || '';
-          }
-        };
-
-        const done = (exitCode: number) => {
-          if (settled) {
+    return new Promise<{ lines: string[]; exitCode: number }>(
+      (resolve, reject) => {
+        client.exec(command, (err, stream) => {
+          if (err) {
+            reject(new Error(`Failed to execute command: ${err.message}`));
             return;
           }
-          settled = true;
-          clearTimeout(timeout);
 
-          if (stdoutTail.trim()) {
-            lines.push(stdoutTail.trim());
-          }
-          if (stderrTail.trim()) {
-            lines.push(stderrTail.trim());
-          }
+          const lines: string[] = [];
+          let stdoutTail = '';
+          let stderrTail = '';
+          let settled = false;
 
-          resolve({
-            lines,
-            exitCode,
+          const flushChunk = (chunk: string, target: 'stdout' | 'stderr') => {
+            const current = target === 'stdout' ? stdoutTail : stderrTail;
+            const merged = `${current}${chunk}`;
+            const parts = merged.split(/\r?\n/);
+
+            if (parts.length > 1) {
+              lines.push(...parts.slice(0, -1).filter(Boolean));
+            }
+
+            if (target === 'stdout') {
+              stdoutTail = parts[parts.length - 1] || '';
+            } else {
+              stderrTail = parts[parts.length - 1] || '';
+            }
+          };
+
+          const done = (exitCode: number) => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            clearTimeout(timeout);
+
+            if (stdoutTail.trim()) {
+              lines.push(stdoutTail.trim());
+            }
+            if (stderrTail.trim()) {
+              lines.push(stderrTail.trim());
+            }
+
+            resolve({
+              lines,
+              exitCode,
+            });
+          };
+
+          const timeout = setTimeout(() => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            stream.close();
+            reject(new Error('Command timed out after 15 seconds.'));
+          }, this.commandTimeoutMs);
+
+          stream.on('data', (chunk: Buffer) => {
+            flushChunk(chunk.toString('utf8'), 'stdout');
           });
-        };
 
-        const timeout = setTimeout(() => {
-          if (settled) {
-            return;
-          }
-          settled = true;
-          stream.close();
-          reject(new Error('Command timed out after 15 seconds.'));
-        }, this.commandTimeoutMs);
+          stream.stderr.on('data', (chunk: Buffer) => {
+            flushChunk(chunk.toString('utf8'), 'stderr');
+          });
 
-        stream.on('data', (chunk: Buffer) => {
-          flushChunk(chunk.toString('utf8'), 'stdout');
+          stream.on('close', (code: number | undefined) => {
+            done(code ?? 0);
+          });
         });
-
-        stream.stderr.on('data', (chunk: Buffer) => {
-          flushChunk(chunk.toString('utf8'), 'stderr');
-        });
-
-        stream.on('close', (code: number | undefined) => {
-          done(code ?? 0);
-        });
-      });
-    });
+      },
+    );
   }
 }

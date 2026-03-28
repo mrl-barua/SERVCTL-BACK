@@ -1,5 +1,14 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -19,6 +28,61 @@ import { CurrentUser } from './decorators/current-user.decorator';
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  private getFrontendUrl() {
+    return process.env.FRONTEND_URL || 'http://localhost:5173';
+  }
+
+  @Get('github')
+  @UseGuards(AuthGuard('github'))
+  @ApiOperation({ summary: 'Redirect to GitHub OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirect to GitHub' })
+  githubLogin() {
+    return;
+  }
+
+  @Get('github/callback')
+  @UseGuards(AuthGuard('github'))
+  @ApiOperation({ summary: 'Handle GitHub OAuth callback' })
+  @ApiResponse({ status: 302, description: 'Redirect to frontend callback' })
+  githubCallback(@Req() req: any, @Res() res: Response) {
+    const token = encodeURIComponent(req.user.access_token);
+    res.redirect(`${this.getFrontendUrl()}/auth/callback?token=${token}`);
+  }
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Redirect to Google OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirect to Google' })
+  googleLogin() {
+    return;
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Handle Google OAuth callback' })
+  @ApiResponse({ status: 302, description: 'Redirect to frontend callback' })
+  googleCallback(@Req() req: any, @Res() res: Response) {
+    const token = encodeURIComponent(req.user.access_token);
+    res.redirect(`${this.getFrontendUrl()}/auth/callback?token=${token}`);
+  }
+
+  @Get('facebook')
+  @UseGuards(AuthGuard('facebook'))
+  @ApiOperation({ summary: 'Redirect to Facebook OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirect to Facebook' })
+  facebookLogin() {
+    return;
+  }
+
+  @Get('facebook/callback')
+  @UseGuards(AuthGuard('facebook'))
+  @ApiOperation({ summary: 'Handle Facebook OAuth callback' })
+  @ApiResponse({ status: 302, description: 'Redirect to frontend callback' })
+  facebookCallback(@Req() req: any, @Res() res: Response) {
+    const token = encodeURIComponent(req.user.access_token);
+    res.redirect(`${this.getFrontendUrl()}/auth/callback?token=${token}`);
+  }
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })

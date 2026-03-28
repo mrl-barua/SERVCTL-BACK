@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { MailService } from '../mail/mail.service';
@@ -31,6 +32,16 @@ export class AuthService {
     private mailService: MailService,
     private quickCommandsService: QuickCommandsService,
   ) {}
+
+  private toPublicUser(user: User) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      provider: user.provider ?? 'local',
+    };
+  }
 
   private getRefreshSecret() {
     return (
@@ -160,11 +171,7 @@ export class AuthService {
 
     return {
       ...tokens,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
+      user: this.toPublicUser(user),
     };
   }
 
@@ -180,6 +187,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.password) {
+      throw new UnauthorizedException(
+        'This account uses social sign-in. Please use an SSO provider.',
+      );
+    }
+
     // Validate password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
@@ -191,11 +204,72 @@ export class AuthService {
 
     return {
       ...tokens,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+      user: this.toPublicUser(user),
+    };
+  }
+
+  async findOrCreateSSOUser(data: {
+    provider: string;
+    providerId: string;
+    email?: string;
+    name?: string;
+    avatar?: string;
+  }): Promise<{
+    access_token: string;
+    refresh_token: string;
+    user: ReturnType<AuthService['toPublicUser']>;
+  }> {
+    let user = await this.prisma.user.findFirst({
+      where: {
+        provider: data.provider,
+        providerId: data.providerId,
       },
+    });
+
+    if (!user && data.email) {
+      user = await this.prisma.user.findUnique({
+        where: { email: data.email.toLowerCase().trim() },
+      });
+
+      if (user) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            provider: data.provider,
+            providerId: data.providerId,
+            avatar: data.avatar ?? user.avatar,
+            name: data.name || user.name,
+          },
+        });
+      }
+    }
+
+    if (!user) {
+      if (!data.email) {
+        throw new BadRequestException(
+          'No email was provided by the identity provider.',
+        );
+      }
+
+      user = await this.prisma.user.create({
+        data: {
+          email: data.email.toLowerCase().trim(),
+          name: data.name || 'SSO User',
+          provider: data.provider,
+          providerId: data.providerId,
+          avatar: data.avatar,
+          password: null,
+        },
+      });
+
+      await this.quickCommandsService.seedDefaults(user.id);
+    }
+
+    const tokens = this.issueTokenPair(user);
+
+    return {
+      ...tokens,
+      user: this.toPublicUser(user),
     };
   }
 
@@ -212,6 +286,8 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatar: user.avatar,
+      provider: user.provider ?? 'local',
     };
   }
 
@@ -233,11 +309,7 @@ export class AuthService {
 
       return {
         ...tokens,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        },
+        user: this.toPublicUser(user),
       };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');

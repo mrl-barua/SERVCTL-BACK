@@ -13,13 +13,18 @@ datasource db {
 model User {
   id                  Int                  @id @default(autoincrement())
   email               String               @unique
-  password            String
+  password            String?
   name                String
+  provider            String?
+  providerId          String?
+  avatar              String?
   createdAt           DateTime             @default(now())
   servers             Server[]
   quickCommands       QuickCommand[]
   sshKeyVault         SshKeyVault[]
   passwordResetTokens PasswordResetToken[]
+
+  @@unique([provider, providerId])
 }
 
 model Server {

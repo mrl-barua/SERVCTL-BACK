@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-facebook';
@@ -6,17 +6,32 @@ import { AuthService } from '../auth.service';
 
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
+  private readonly logger = new Logger(FacebookStrategy.name);
+
   constructor(
     private config: ConfigService,
     private authService: AuthService,
   ) {
+    const clientID = config.get<string>('FACEBOOK_APP_ID') || 'disabled-client';
+    const clientSecret =
+      config.get<string>('FACEBOOK_APP_SECRET') || 'disabled-secret';
+    const callbackURL =
+      config.get<string>('FACEBOOK_CALLBACK_URL') ||
+      'http://localhost:3000/auth/facebook/callback';
+
     super({
-      clientID: config.get<string>('FACEBOOK_APP_ID') || '',
-      clientSecret: config.get<string>('FACEBOOK_APP_SECRET') || '',
-      callbackURL: config.get<string>('FACEBOOK_CALLBACK_URL') || '',
+      clientID,
+      clientSecret,
+      callbackURL,
       scope: ['email'],
       profileFields: ['id', 'emails', 'name', 'photos'],
     });
+
+    if (!this.config.get<string>('FACEBOOK_APP_ID')) {
+      this.logger.warn(
+        'Facebook OAuth is not configured. Set FACEBOOK_APP_ID/SECRET/CALLBACK_URL to enable it.',
+      );
+    }
   }
 
   async validate(accessToken: string, refreshToken: string, profile: any) {

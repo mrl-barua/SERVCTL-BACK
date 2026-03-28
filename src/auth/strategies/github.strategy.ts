@@ -12,7 +12,8 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
     private config: ConfigService,
     private authService: AuthService,
   ) {
-    const clientID = config.get<string>('GITHUB_CLIENT_ID') || 'disabled-client';
+    const clientID =
+      config.get<string>('GITHUB_CLIENT_ID') || 'disabled-client';
     const clientSecret =
       config.get<string>('GITHUB_CLIENT_SECRET') || 'disabled-secret';
     const callbackURL =

@@ -12,7 +12,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private config: ConfigService,
     private authService: AuthService,
   ) {
-    const clientID = config.get<string>('GOOGLE_CLIENT_ID') || 'disabled-client';
+    const clientID =
+      config.get<string>('GOOGLE_CLIENT_ID') || 'disabled-client';
     const clientSecret =
       config.get<string>('GOOGLE_CLIENT_SECRET') || 'disabled-secret';
     const callbackURL =

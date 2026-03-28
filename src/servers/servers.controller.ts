@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Query,
   Param,
   Patch,
@@ -19,12 +20,18 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateServerDto, UpdateServerDto } from './dto/create-server.dto';
 import { ListServersQueryDto } from './dto/list-servers-query.dto';
-import { ServerDto, UpdateServerDto } from './dto/server.dto';
 import { ServerStatusDto } from './dto/server-status.dto';
 import { UpdateServerStatusDto } from './dto/update-server-status.dto';
 import { ServersService } from './servers.service';
+
+class VerifyKeyPathDto {
+  @IsString()
+  path: string;
+}
 
 @ApiTags('servers')
 @Controller('servers')
@@ -129,7 +136,7 @@ export class ServersController {
     status: 401,
     description: 'Unauthorized - missing or invalid token',
   })
-  create(@Body() serverDto: ServerDto, @CurrentUser() user: any) {
+  create(@Body() serverDto: CreateServerDto, @CurrentUser() user: any) {
     return this.serversService.create(user.id, serverDto);
   }
 
@@ -255,5 +262,13 @@ export class ServersController {
     @Body() updateServerStatusDto: UpdateServerStatusDto,
   ) {
     return this.serversService.updateStatus(id, user.id, updateServerStatusDto);
+  }
+
+  @Post('verify-key-path')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Verify local SSH key path readability' })
+  @ApiResponse({ status: 200, description: 'Verification result' })
+  verifyKeyPath(@Body() dto: VerifyKeyPathDto) {
+    return this.serversService.verifyKeyPath(dto.path);
   }
 }

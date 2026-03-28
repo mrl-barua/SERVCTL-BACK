@@ -40,6 +40,9 @@ async function bootstrap() {
     )
     .addTag('auth', 'Authentication endpoints')
     .addTag('servers', 'Server management endpoints')
+    .addTag('keys', 'SSH key vault endpoints')
+    .addTag('network', 'Network detection endpoints')
+    .addTag('config', 'Runtime config and feature flags')
     .addTag('deploy', 'Deployment management endpoints')
     .addTag('logs', 'Server log retrieval endpoints')
     .build();

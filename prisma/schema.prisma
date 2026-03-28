@@ -17,25 +17,53 @@ model User {
   name                String
   createdAt           DateTime             @default(now())
   servers             Server[]
+  sshKeyVault         SshKeyVault[]
   passwordResetTokens PasswordResetToken[]
 }
 
 model Server {
-  id        Int      @id @default(autoincrement())
-  name      String
-  host      String
-  user      String   @default("ubuntu")
-  port      Int      @default(22)
-  env       String   @default("prod")
-  notes     String?
-  deploy    String?
-  logpath   String?
-  status    String   @default("unknown")
-  uptime    Float    @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId   Int
+  id            Int          @id @default(autoincrement())
+  name          String
+  host          String
+  user          String       @default("ubuntu")
+  port          Int          @default(22)
+  env           String       @default("prod")
+  notes         String?
+  deploy        String?
+  logPath       String?
+  logType       String       @default("file")
+  dockerName    String?
+  authMethod    String       @default("password")
+  passwordEnc   String?
+  sshKeyEnc     String?
+  sshKeyLabel   String?
+  sshKeyPath    String?
+  sshKeyVaultId String?
+  networkType   String       @default("auto")
+  status        String       @default("unknown")
+  uptime        Float        @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  owner         User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId       Int
+  sshKeyVault   SshKeyVault? @relation(fields: [sshKeyVaultId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([sshKeyVaultId])
+}
+
+model SshKeyVault {
+  id            String   @id @default(cuid())
+  userId        Int
+  label         String
+  publicKey     String
+  privateKeyEnc String
+  fingerprint   String
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  servers       Server[]
+
+  @@index([userId])
 }
 
 model PasswordResetToken {

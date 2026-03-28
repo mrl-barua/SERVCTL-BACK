@@ -4,11 +4,21 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly transporter: nodemailer.Transporter;
+  private readonly transporter?: nodemailer.Transporter;
 
   constructor() {
+    const smtpHost = (process.env.SMTP_HOST || '').trim();
+    const resolvedHost = smtpHost === 'localhost' ? '127.0.0.1' : smtpHost;
+
+    if (!resolvedHost) {
+      this.logger.warn(
+        'SMTP_HOST is not configured. Password reset emails will be skipped in this environment.',
+      );
+      return;
+    }
+
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host: resolvedHost,
       port: parseInt(process.env.SMTP_PORT || '587', 10),
       secure: false,
       auth:
@@ -28,6 +38,13 @@ export class MailService {
     expiresInMinutes: number;
   }): Promise<void> {
     const fromAddress = process.env.SMTP_FROM || 'noreply@servctl.dev';
+
+    if (!this.transporter) {
+      this.logger.warn(
+        `Skipping password reset email to ${opts.to}: SMTP transport is not configured. Reset URL: ${opts.resetUrl}`,
+      );
+      return;
+    }
 
     try {
       await this.transporter.sendMail({
@@ -83,12 +100,18 @@ export class MailService {
         text: `Reset your SERVCTL password:\n\n${opts.resetUrl}\n\nExpires in ${opts.expiresInMinutes} minutes.\n\nIf you didn't request this, ignore this email.`,
       });
     } catch (error) {
-      // Do not break auth flow on SMTP transient errors in development.
       this.logger.error(
         `Failed to send password reset email to ${opts.to}`,
         (error as Error)?.stack,
       );
-      throw error;
+
+      if (process.env.NODE_ENV === 'production') {
+        throw error;
+      }
+
+      this.logger.warn(
+        `Continuing without email delivery in non-production environment. Reset URL: ${opts.resetUrl}`,
+      );
     }
   }
 }

@@ -20,17 +20,6 @@ import { TerminalService } from './terminal.service';
 export class TerminalGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
-  private readonly sessions = new Map<
-    string,
-    {
-      userId: number;
-      serverId: number;
-      serverName: string;
-      serverUser: string;
-      serverHost: string;
-    }
-  >();
-
   constructor(
     private readonly terminalService: TerminalService,
     private readonly jwtService: JwtService,
@@ -41,7 +30,7 @@ export class TerminalGateway
   }
 
   handleDisconnect(@ConnectedSocket() client: Socket) {
-    this.sessions.delete(client.id);
+    this.terminalService.closeSession(client.id);
   }
 
   @SubscribeMessage('terminal:connect')
@@ -50,19 +39,31 @@ export class TerminalGateway
     @MessageBody() body: { serverId: number },
   ) {
     const user = await this.authenticate(client);
-    const session = await this.terminalService.createSession(
-      user.id,
-      body.serverId,
-    );
-    this.sessions.set(client.id, session);
+    try {
+      const session = await this.terminalService.createSession(
+        client.id,
+        user.id,
+        body.serverId,
+      );
 
-    client.emit('terminal:connected', {
-      serverId: session.serverId,
-      serverName: session.serverName,
-      serverUser: session.serverUser,
-    });
+      client.emit('terminal:connected', {
+        serverId: session.serverId,
+        serverName: session.serverName,
+        serverUser: session.serverUser,
+      });
 
-    return { ok: true };
+      return { ok: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to connect terminal';
+
+      client.emit('terminal:output', {
+        type: 'error',
+        lines: [message],
+      });
+
+      return { ok: false, message };
+    }
   }
 
   @SubscribeMessage('terminal:command')
@@ -70,17 +71,8 @@ export class TerminalGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() body: { command: string },
   ) {
-    const session = this.sessions.get(client.id);
-    if (!session) {
-      client.emit('terminal:output', {
-        type: 'error',
-        lines: ['No active terminal session. Connect to a server first.'],
-      });
-      return;
-    }
-
-    const result = this.terminalService.executeAllowedCommand(
-      session,
+    const result = await this.terminalService.executeAllowedCommand(
+      client.id,
       body.command,
     );
 

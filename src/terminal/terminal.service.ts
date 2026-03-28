@@ -1,10 +1,13 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Client } from 'ssh2';
 import { LogsService } from '../logs/logs.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { SshService } from '../ssh/ssh.service';
 
 interface SessionContext {
   userId: number;
@@ -14,17 +17,30 @@ interface SessionContext {
   serverHost: string;
 }
 
+interface ActiveSession {
+  context: SessionContext;
+  client: Client;
+  busy: boolean;
+}
+
 @Injectable()
 export class TerminalService {
+  private readonly sessions = new Map<string, ActiveSession>();
+  private readonly commandTimeoutMs = 15000;
+
   constructor(
-    private prisma: PrismaService,
-    private logsService: LogsService,
+    private readonly prisma: PrismaService,
+    private readonly logsService: LogsService,
+    private readonly sshService: SshService,
   ) {}
 
   async createSession(
+    socketId: string,
     userId: number,
     serverId: number,
   ): Promise<SessionContext> {
+    this.closeSession(socketId);
+
     const server = await this.prisma.server.findUnique({
       where: { id: serverId },
       select: {
@@ -32,6 +48,12 @@ export class TerminalService {
         name: true,
         user: true,
         host: true,
+        port: true,
+        authMethod: true,
+        passwordEnc: true,
+        sshKeyEnc: true,
+        sshKeyPath: true,
+        sshKeyVaultId: true,
         ownerId: true,
       },
     });
@@ -44,22 +66,80 @@ export class TerminalService {
       throw new ForbiddenException('You do not have access to this server');
     }
 
-    return {
+    const context: SessionContext = {
       userId,
       serverId: server.id,
       serverName: server.name,
       serverUser: server.user,
       serverHost: server.host,
     };
+
+    const connectConfig = await this.sshService.buildConnectConfig({
+      host: server.host,
+      port: server.port,
+      user: server.user,
+      authMethod: server.authMethod,
+      passwordEnc: server.passwordEnc,
+      sshKeyEnc: server.sshKeyEnc,
+      sshKeyPath: server.sshKeyPath,
+      sshKeyVaultId: server.sshKeyVaultId,
+    });
+
+    const client = await this.openSshConnection(connectConfig as Record<string, any>);
+
+    this.sessions.set(socketId, {
+      context,
+      client,
+      busy: false,
+    });
+
+    this.logsService.appendLog(
+      context.serverId,
+      context.serverName,
+      'INFO',
+      'Terminal SSH session connected',
+    );
+
+    return context;
   }
 
-  executeAllowedCommand(context: SessionContext, command: string) {
+  async executeAllowedCommand(socketId: string, command: string) {
+    const session = this.sessions.get(socketId);
+    if (!session) {
+      return {
+        ok: false,
+        lines: ['No active terminal session. Connect to a server first.'],
+      };
+    }
+
     const clean = command.trim();
+
+    if (!clean) {
+      return {
+        ok: true,
+        lines: [],
+      };
+    }
+
+    if (clean === 'clear') {
+      return {
+        ok: true,
+        lines: [],
+      };
+    }
+
+    if (clean === 'exit') {
+      this.closeSession(socketId);
+      return {
+        ok: true,
+        lines: [`Connection to ${session.context.serverHost} closed.`],
+      };
+    }
 
     if (!this.isAllowed(clean)) {
       this.logsService.appendLog(
-        context.serverId,
-        context.serverName,
+        session.context.serverId,
+        session.context.serverName,
         'WARN',
         `Blocked terminal command: ${clean}`,
       );
@@ -70,19 +150,62 @@ export class TerminalService {
       };
     }
 
-    const output = this.renderOutput(clean, context);
+    if (session.busy) {
+      return {
+        ok: false,
+        lines: ['Another command is still running. Please wait.'],
+      };
+    }
 
-    this.logsService.appendLog(
-      context.serverId,
-      context.serverName,
-      'INFO',
-      `Executed terminal command: ${clean}`,
-    );
+    session.busy = true;
 
-    return {
-      ok: true,
-      lines: output,
-    };
+    try {
+      const result = await this.executeSshCommand(session.client, clean);
+
+      this.logsService.appendLog(
+        session.context.serverId,
+        session.context.serverName,
+        'INFO',
+        `Executed terminal command: ${clean}`,
+      );
+
+      return {
+        ok: result.exitCode === 0,
+        lines: result.lines,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Terminal execution failed';
+
+      this.logsService.appendLog(
+        session.context.serverId,
+        session.context.serverName,
+        'ERROR',
+        `Terminal command failed: ${clean} (${message})`,
+      );
+
+      return {
+        ok: false,
+        lines: [message],
+      };
+    } finally {
+      session.busy = false;
+    }
+  }
+
+  closeSession(socketId: string) {
+    const existing = this.sessions.get(socketId);
+    if (!existing) {
+      return;
+    }
+
+    try {
+      existing.client.end();
+    } catch {
+      // no-op
+    }
+
+    this.sessions.delete(socketId);
   }
 
   private isAllowed(command: string) {
@@ -108,109 +231,113 @@ export class TerminalService {
       return true;
     }
 
-    return command.startsWith('echo ');
+    if (command.startsWith('echo ')) {
+      return /^echo\s+[^;&|`$><\n\r]+$/.test(command);
+    }
+
+    return false;
   }
 
-  private renderOutput(command: string, context: SessionContext) {
-    if (command === 'uptime') {
-      return [
-        ` ${new Date().toLocaleTimeString()} up 12 days, 3:14, 1 user, load average: 0.14, 0.18, 0.22`,
-      ];
-    }
+  private openSshConnection(connectConfig: Record<string, any>) {
+    return new Promise<Client>((resolve, reject) => {
+      const client = new Client();
 
-    if (command === 'df -h') {
-      return [
-        'Filesystem      Size  Used Avail Use% Mounted on',
-        '/dev/sda1        60G   18G   40G  31% /',
-        'tmpfs           2.0G     0  2.0G   0% /dev/shm',
-      ];
-    }
+      const timeout = setTimeout(() => {
+        try {
+          client.end();
+        } catch {
+          // no-op
+        }
+        reject(new BadRequestException('SSH connection timed out.'));
+      }, 10000);
 
-    if (command === 'free -h') {
-      return [
-        '              total        used        free      shared  buff/cache   available',
-        'Mem:          7.7Gi       2.0Gi       3.8Gi       120Mi       1.9Gi       5.3Gi',
-        'Swap:         2.0Gi       0.0Gi       2.0Gi',
-      ];
-    }
+      client
+        .on('ready', () => {
+          clearTimeout(timeout);
+          resolve(client);
+        })
+        .on('error', (error) => {
+          clearTimeout(timeout);
+          reject(
+            new BadRequestException(
+              `SSH connection failed: ${error.message || 'Unknown error'}`,
+            ),
+          );
+        })
+        .connect(connectConfig);
+    });
+  }
 
-    if (command === 'docker ps') {
-      return [
-        'CONTAINER ID   IMAGE        STATUS       PORTS                  NAMES',
-        'ab12cd34ef56   nginx:1.27   Up 3 hours   0.0.0.0:80->80/tcp     web',
-        'cd34ef56ab12   redis:7      Up 3 hours   0.0.0.0:6379->6379/tcp cache',
-      ];
-    }
+  private executeSshCommand(client: Client, command: string) {
+    return new Promise<{ lines: string[]; exitCode: number }>((resolve, reject) => {
+      client.exec(command, (err, stream) => {
+        if (err) {
+          reject(new Error(`Failed to execute command: ${err.message}`));
+          return;
+        }
 
-    if (command === 'who') {
-      return [
-        `${context.serverUser} pts/0 ${new Date().toISOString().slice(0, 16).replace('T', ' ')} (10.0.0.5)`,
-      ];
-    }
+        const lines: string[] = [];
+        let stdoutTail = '';
+        let stderrTail = '';
+        let settled = false;
 
-    if (command === 'whoami') {
-      return [context.serverUser];
-    }
+        const flushChunk = (chunk: string, target: 'stdout' | 'stderr') => {
+          const current = target === 'stdout' ? stdoutTail : stderrTail;
+          const merged = `${current}${chunk}`;
+          const parts = merged.split(/\r?\n/);
 
-    if (command === 'pwd') {
-      return [`/home/${context.serverUser}`];
-    }
+          if (parts.length > 1) {
+            lines.push(...parts.slice(0, -1).filter(Boolean));
+          }
 
-    if (command === 'hostname') {
-      return [context.serverName];
-    }
+          if (target === 'stdout') {
+            stdoutTail = parts[parts.length - 1] || '';
+          } else {
+            stderrTail = parts[parts.length - 1] || '';
+          }
+        };
 
-    if (command === 'ss -tuln') {
-      return [
-        'Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port',
-        'tcp   LISTEN 0      511    0.0.0.0:80        0.0.0.0:*',
-        'tcp   LISTEN 0      128    0.0.0.0:22        0.0.0.0:*',
-      ];
-    }
+        const done = (exitCode: number) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(timeout);
 
-    if (command === 'last -10') {
-      return [
-        `${context.serverUser} pts/0 10.0.0.5 Sat Mar 28 09:00 still logged in`,
-        `${context.serverUser} pts/1 10.0.0.9 Fri Mar 27 18:12 - 18:48 (00:36)`,
-      ];
-    }
+          if (stdoutTail.trim()) {
+            lines.push(stdoutTail.trim());
+          }
+          if (stderrTail.trim()) {
+            lines.push(stderrTail.trim());
+          }
 
-    if (command === 'ps aux --sort=-%cpu | head -10') {
-      return [
-        'USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND',
-        'root      1182 12.1  2.1 182340 88320 ?        Ssl  08:31   0:44 node server.js',
-        'www-data  2401  8.7  1.2 152200 48220 ?        S    08:40   0:23 nginx: worker process',
-      ];
-    }
+          resolve({
+            lines,
+            exitCode,
+          });
+        };
 
-    if (command === 'sudo systemctl status nginx') {
-      return [
-        'nginx.service - A high performance web server and a reverse proxy server',
-        '   Loaded: loaded (/lib/systemd/system/nginx.service; enabled)',
-        '   Active: active (running) since Sat 2026-03-28 08:31:22 UTC',
-      ];
-    }
+        const timeout = setTimeout(() => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          stream.close();
+          reject(new Error('Command timed out after 15 seconds.'));
+        }, this.commandTimeoutMs);
 
-    if (command === 'sudo tail -50 /var/log/syslog') {
-      return [
-        'Mar 28 10:10:01 deploy-host systemd[1]: Started Session 153 of user ubuntu.',
-        'Mar 28 10:10:03 deploy-host sshd[4221]: Accepted publickey for ubuntu from 10.0.0.5 port 52210 ssh2',
-        'Mar 28 10:10:10 deploy-host sudo: ubuntu : TTY=pts/0 ; PWD=/home/ubuntu ; USER=root ; COMMAND=/usr/bin/systemctl status nginx',
-      ];
-    }
+        stream.on('data', (chunk: Buffer) => {
+          flushChunk(chunk.toString('utf8'), 'stdout');
+        });
 
-    if (command.startsWith('echo ')) {
-      return [command.slice(5)];
-    }
+        stream.stderr.on('data', (chunk: Buffer) => {
+          flushChunk(chunk.toString('utf8'), 'stderr');
+        });
 
-    if (command === 'clear') {
-      return [];
-    }
-
-    if (command === 'exit') {
-      return [`Connection to ${context.serverHost} closed.`];
-    }
-
-    return ['Command executed.'];
+        stream.on('close', (code: number | undefined) => {
+          done(code ?? 0);
+        });
+      });
+    });
   }
 }

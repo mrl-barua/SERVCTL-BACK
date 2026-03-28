@@ -124,7 +124,8 @@ export class LogsService {
 
     const level = levels[Math.floor(Math.random() * levels.length)];
     const levelMessages = messages[level];
-    const message = levelMessages[Math.floor(Math.random() * levelMessages.length)];
+    const message =
+      levelMessages[Math.floor(Math.random() * levelMessages.length)];
 
     return this.appendLog(serverId, serverName, level, message);
   }
@@ -140,9 +141,7 @@ export class LogsService {
       seeded.push(entry);
     }
 
-    seeded.sort((left, right) =>
-      right.timestamp.localeCompare(left.timestamp),
-    );
+    seeded.sort((left, right) => right.timestamp.localeCompare(left.timestamp));
 
     this.entriesByServer.set(serverId, seeded);
   }

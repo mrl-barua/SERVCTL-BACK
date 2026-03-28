@@ -21,7 +21,10 @@ export class TerminalService {
     private logsService: LogsService,
   ) {}
 
-  async createSession(userId: number, serverId: number): Promise<SessionContext> {
+  async createSession(
+    userId: number,
+    serverId: number,
+  ): Promise<SessionContext> {
     const server = await this.prisma.server.findUnique({
       where: { id: serverId },
       select: {

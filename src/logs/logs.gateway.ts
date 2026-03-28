@@ -47,7 +47,10 @@ export class LogsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() body: { serverId: number },
   ) {
     const user = await this.authenticate(client);
-    const server = await this.logsService.assertOwnership(body.serverId, user.id);
+    const server = await this.logsService.assertOwnership(
+      body.serverId,
+      user.id,
+    );
 
     const room = this.getRoom(server.id);
     await client.join(room);
@@ -94,8 +97,7 @@ export class LogsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private async authenticate(client: Socket) {
     const token = this.extractToken(client);
     const payload = this.jwtService.verify(token, {
-      secret:
-        process.env.JWT_SECRET || 'your-super-secret-key-change-this',
+      secret: process.env.JWT_SECRET || 'your-super-secret-key-change-this',
     }) as { sub: number; email: string };
 
     return {
@@ -113,8 +115,6 @@ export class LogsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new Error('Missing token');
     }
 
-    return authToken.startsWith('Bearer ')
-      ? authToken.slice(7)
-      : authToken;
+    return authToken.startsWith('Bearer ') ? authToken.slice(7) : authToken;
   }
 }

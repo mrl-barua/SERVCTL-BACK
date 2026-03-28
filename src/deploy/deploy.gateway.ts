@@ -58,8 +58,7 @@ export class DeployGateway implements OnGatewayConnection {
   private async authenticate(client: Socket) {
     const token = this.extractToken(client);
     const payload = this.jwtService.verify(token, {
-      secret:
-        process.env.JWT_SECRET || 'your-super-secret-key-change-this',
+      secret: process.env.JWT_SECRET || 'your-super-secret-key-change-this',
     }) as { sub: number; email: string };
 
     return {
@@ -77,8 +76,6 @@ export class DeployGateway implements OnGatewayConnection {
       throw new Error('Missing token');
     }
 
-    return authToken.startsWith('Bearer ')
-      ? authToken.slice(7)
-      : authToken;
+    return authToken.startsWith('Bearer ') ? authToken.slice(7) : authToken;
   }
 }

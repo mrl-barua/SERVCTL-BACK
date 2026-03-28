@@ -17,7 +17,9 @@ import { TerminalService } from './terminal.service';
     credentials: true,
   },
 })
-export class TerminalGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class TerminalGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly sessions = new Map<
     string,
     {
@@ -48,7 +50,10 @@ export class TerminalGateway implements OnGatewayConnection, OnGatewayDisconnect
     @MessageBody() body: { serverId: number },
   ) {
     const user = await this.authenticate(client);
-    const session = await this.terminalService.createSession(user.id, body.serverId);
+    const session = await this.terminalService.createSession(
+      user.id,
+      body.serverId,
+    );
     this.sessions.set(client.id, session);
 
     client.emit('terminal:connected', {
@@ -89,8 +94,7 @@ export class TerminalGateway implements OnGatewayConnection, OnGatewayDisconnect
   private async authenticate(client: Socket) {
     const token = this.extractToken(client);
     const payload = this.jwtService.verify(token, {
-      secret:
-        process.env.JWT_SECRET || 'your-super-secret-key-change-this',
+      secret: process.env.JWT_SECRET || 'your-super-secret-key-change-this',
     }) as { sub: number; email: string };
 
     return {
@@ -108,8 +112,6 @@ export class TerminalGateway implements OnGatewayConnection, OnGatewayDisconnect
       throw new Error('Missing token');
     }
 
-    return authToken.startsWith('Bearer ')
-      ? authToken.slice(7)
-      : authToken;
+    return authToken.startsWith('Bearer ') ? authToken.slice(7) : authToken;
   }
 }

@@ -110,7 +110,12 @@ export class DeployService {
 
     this.states.set(serverId, state);
     this.pushHistory(serverId, `Deploy stopped for ${server.name}`);
-    this.logsService.appendLog(serverId, server.name, 'WARN', 'Deploy manually stopped');
+    this.logsService.appendLog(
+      serverId,
+      server.name,
+      'WARN',
+      'Deploy manually stopped',
+    );
     this.emit(state);
 
     return state;
@@ -155,7 +160,12 @@ export class DeployService {
         state.updatedAt = new Date().toISOString();
         this.states.set(serverId, state);
         this.pushHistory(serverId, `Deploy finished for ${serverName}`);
-        this.logsService.appendLog(serverId, serverName, 'OK', 'Deployment completed successfully');
+        this.logsService.appendLog(
+          serverId,
+          serverName,
+          'OK',
+          'Deployment completed successfully',
+        );
         this.emit(state);
         this.stopTimer(serverId);
         return;
@@ -168,7 +178,12 @@ export class DeployService {
 
       if (stepName) {
         this.pushHistory(serverId, `[${state.progress}%] ${stepName}`);
-        this.logsService.appendLog(serverId, serverName, 'INFO', `Deploy step: ${stepName}`);
+        this.logsService.appendLog(
+          serverId,
+          serverName,
+          'INFO',
+          `Deploy step: ${stepName}`,
+        );
       }
 
       state.step += 1;

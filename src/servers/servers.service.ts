@@ -369,6 +369,13 @@ export class ServersService {
     }
 
     const nextAuthMethod = dto.authMethod || current.authMethod;
+    const shouldUpdateAuth =
+      dto.authMethod !== undefined ||
+      dto.password !== undefined ||
+      dto.sshKey !== undefined ||
+      dto.sshKeyPath !== undefined ||
+      dto.vaultKeyId !== undefined;
+
     const data: any = {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.host !== undefined ? { host: dto.host } : {}),
@@ -380,16 +387,18 @@ export class ServersService {
       ...(dto.logPath !== undefined ? { logPath: dto.logPath } : {}),
       ...(dto.logType !== undefined ? { logType: dto.logType } : {}),
       ...(dto.dockerName !== undefined ? { dockerName: dto.dockerName } : {}),
-      authMethod: nextAuthMethod,
+      ...(dto.authMethod !== undefined ? { authMethod: nextAuthMethod } : {}),
       networkType: isPrivate ? 'private' : 'public',
     };
 
-    await this.applyAuthMethod(
-      userId,
-      { ...dto, authMethod: nextAuthMethod },
-      data,
-      deployMode,
-    );
+    if (shouldUpdateAuth) {
+      await this.applyAuthMethod(
+        userId,
+        { ...dto, authMethod: nextAuthMethod },
+        data,
+        deployMode,
+      );
+    }
 
     return data;
   }

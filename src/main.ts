@@ -40,6 +40,8 @@ async function bootstrap() {
     )
     .addTag('auth', 'Authentication endpoints')
     .addTag('servers', 'Server management endpoints')
+    .addTag('deploy', 'Deployment management endpoints')
+    .addTag('logs', 'Server log retrieval endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

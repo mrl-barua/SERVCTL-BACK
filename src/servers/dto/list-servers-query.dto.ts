@@ -18,19 +18,28 @@ export class ListServersQueryDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ example: 'prod', enum: ['prod', 'live', 'qa', 'test'] })
+  @ApiPropertyOptional({
+    example: 'prod',
+    enum: ['prod', 'live', 'qa', 'test'],
+  })
   @IsOptional()
   @IsString()
   @IsIn(['prod', 'live', 'qa', 'test'])
   env?: string;
 
-  @ApiPropertyOptional({ example: 'online', enum: ['online', 'offline', 'unknown'] })
+  @ApiPropertyOptional({
+    example: 'online',
+    enum: ['online', 'offline', 'unknown'],
+  })
   @IsOptional()
   @IsString()
   @IsIn(['online', 'offline', 'unknown'])
   status?: string;
 
-  @ApiPropertyOptional({ example: 'web-prod', description: 'Case-insensitive name contains filter' })
+  @ApiPropertyOptional({
+    example: 'web-prod',
+    description: 'Case-insensitive name contains filter',
+  })
   @IsOptional()
   @IsString()
   search?: string;

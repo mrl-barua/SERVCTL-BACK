@@ -19,7 +19,11 @@ export class AuthService {
   ) {}
 
   private getRefreshSecret() {
-    return process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-super-secret-key-change-this';
+    return (
+      process.env.JWT_REFRESH_SECRET ||
+      process.env.JWT_SECRET ||
+      'your-super-secret-key-change-this'
+    );
   }
 
   private getRefreshExpiresIn() {

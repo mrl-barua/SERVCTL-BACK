@@ -37,8 +37,16 @@ export class ServersController {
   @ApiOperation({ summary: 'Get all servers for the current user' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiQuery({ name: 'env', required: false, enum: ['prod', 'live', 'qa', 'test'] })
-  @ApiQuery({ name: 'status', required: false, enum: ['online', 'offline', 'unknown'] })
+  @ApiQuery({
+    name: 'env',
+    required: false,
+    enum: ['prod', 'live', 'qa', 'test'],
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['online', 'offline', 'unknown'],
+  })
   @ApiQuery({ name: 'search', required: false, example: 'prod' })
   @ApiResponse({
     status: 200,

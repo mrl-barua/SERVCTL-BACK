@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { QuickCommandsService } from '../quick-commands/quick-commands.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -28,6 +29,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private mailService: MailService,
+    private quickCommandsService: QuickCommandsService,
   ) {}
 
   private getRefreshSecret() {
@@ -151,6 +153,8 @@ export class AuthService {
         name,
       },
     });
+
+    await this.quickCommandsService.seedDefaults(user.id);
 
     const tokens = this.issueTokenPair(user);
 

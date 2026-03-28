@@ -45,6 +45,7 @@ async function bootstrap() {
     .addTag('config', 'Runtime config and feature flags')
     .addTag('deploy', 'Deployment management endpoints')
     .addTag('logs', 'Server log retrieval endpoints')
+    .addTag('quick-commands', 'Terminal quick command management endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

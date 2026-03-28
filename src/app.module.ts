@@ -8,6 +8,7 @@ import { KeysModule } from './keys/keys.module';
 import { LogsModule } from './logs/logs.module';
 import { NetworkModule } from './network/network.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { QuickCommandsModule } from './quick-commands/quick-commands.module';
 import { ServersModule } from './servers/servers.module';
 import { SshModule } from './ssh/ssh.module';
 import { TerminalModule } from './terminal/terminal.module';
@@ -29,6 +30,7 @@ import { TerminalModule } from './terminal/terminal.module';
     DeployModule,
     SshModule,
     TerminalModule,
+    QuickCommandsModule,
   ],
 })
 export class AppModule {}

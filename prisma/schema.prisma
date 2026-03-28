@@ -17,6 +17,7 @@ model User {
   name                String
   createdAt           DateTime             @default(now())
   servers             Server[]
+  quickCommands       QuickCommand[]
   sshKeyVault         SshKeyVault[]
   passwordResetTokens PasswordResetToken[]
 }
@@ -47,9 +48,30 @@ model Server {
   owner         User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId       Int
   sshKeyVault   SshKeyVault? @relation(fields: [sshKeyVaultId], references: [id], onDelete: SetNull)
+  quickCommands QuickCommand[]
 
   @@index([ownerId])
   @@index([sshKeyVaultId])
+}
+
+model QuickCommand {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  command   String
+  scope     String   @default("all")
+  serverId  Int?
+  server    Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  icon      String?
+  sortOrder Int      @default(0)
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([serverId])
+  @@index([userId, sortOrder])
 }
 
 model SshKeyVault {

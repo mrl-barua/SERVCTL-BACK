@@ -8,9 +8,9 @@ export class ServerStatusDto {
   id: number;
 
   @ApiProperty({
-    example: 'running',
+    example: 'online',
     description: 'Current server status',
-    enum: ['running', 'stopped', 'error'],
+    enum: ['online', 'offline', 'unknown'],
   })
   status: string;
 

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Query,
   Param,
   Patch,
   Post,
@@ -13,13 +14,16 @@ import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ListServersQueryDto } from './dto/list-servers-query.dto';
 import { ServerDto, UpdateServerDto } from './dto/server.dto';
 import { ServerStatusDto } from './dto/server-status.dto';
+import { UpdateServerStatusDto } from './dto/update-server-status.dto';
 import { ServersService } from './servers.service';
 
 @ApiTags('servers')
@@ -31,32 +35,21 @@ export class ServersController {
 
   @Get()
   @ApiOperation({ summary: 'Get all servers for the current user' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'env', required: false, enum: ['prod', 'live', 'qa', 'test'] })
+  @ApiQuery({ name: 'status', required: false, enum: ['online', 'offline', 'unknown'] })
+  @ApiQuery({ name: 'search', required: false, example: 'prod' })
   @ApiResponse({
     status: 200,
     description: 'List of servers',
-    schema: {
-      example: [
-        {
-          id: 1,
-          name: 'Production Server',
-          host: '192.168.1.100',
-          user: 'ubuntu',
-          port: 22,
-          env: 'prod',
-          status: 'running',
-          uptime: 99.5,
-          createdAt: '2024-01-15T10:30:00Z',
-          updatedAt: '2024-01-15T10:30:00Z',
-        },
-      ],
-    },
   })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized - missing or invalid token',
   })
-  findAll(@CurrentUser() user: any) {
-    return this.serversService.findAll(user.id);
+  findAll(@CurrentUser() user: any, @Query() query: ListServersQueryDto) {
+    return this.serversService.findAll(user.id, query);
   }
 
   @Get(':id')
@@ -222,11 +215,37 @@ export class ServersController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
   ) {
-    return {
-      id,
-      status: 'running',
-      uptime: 99.5,
-      lastCheck: new Date().toISOString(),
-    };
+    return this.serversService.getServerStatus(id, user.id);
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update server status' })
+  @ApiParam({
+    name: 'id',
+    description: 'Server ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Server status updated successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - missing or invalid token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - server does not belong to user',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Server not found',
+  })
+  updateServerStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body() updateServerStatusDto: UpdateServerStatusDto,
+  ) {
+    return this.serversService.updateStatus(id, user.id, updateServerStatusDto);
   }
 }

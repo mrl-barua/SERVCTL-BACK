@@ -3,7 +3,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 
 @ApiTags('auth')
@@ -59,6 +61,20 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens refreshed successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid refresh token',
+  })
+  refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto);
+  }
+
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth('JWT-auth')
@@ -82,5 +98,28 @@ export class AuthController {
   })
   getCurrentUser(@CurrentUser() user: any) {
     return user;
+  }
+
+  @Post('profile')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid profile update payload',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - missing or invalid token',
+  })
+  updateProfile(
+    @CurrentUser() user: any,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(user.id, updateProfileDto);
   }
 }

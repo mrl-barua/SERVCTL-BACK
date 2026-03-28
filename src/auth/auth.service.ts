@@ -7,7 +7,9 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +17,32 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  private getRefreshSecret() {
+    return process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-super-secret-key-change-this';
+  }
+
+  private getRefreshExpiresIn() {
+    return (process.env.JWT_REFRESH_EXPIRES_IN ?? '30d') as any;
+  }
+
+  private issueTokenPair(user: { id: number; email: string }) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+    };
+
+    const access_token = this.jwtService.sign(payload);
+    const refresh_token = this.jwtService.sign(payload, {
+      secret: this.getRefreshSecret(),
+      expiresIn: this.getRefreshExpiresIn(),
+    });
+
+    return {
+      access_token,
+      refresh_token,
+    };
+  }
 
   async register(registerDto: RegisterDto) {
     const { email, password, name } = registerDto;
@@ -40,14 +68,10 @@ export class AuthService {
       },
     });
 
-    // Generate JWT
-    const token = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-    });
+    const tokens = this.issueTokenPair(user);
 
     return {
-      access_token: token,
+      ...tokens,
       user: {
         id: user.id,
         email: user.email,
@@ -75,14 +99,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Generate JWT
-    const token = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-    });
+    const tokens = this.issueTokenPair(user);
 
     return {
-      access_token: token,
+      ...tokens,
       user: {
         id: user.id,
         email: user.email,
@@ -104,6 +124,68 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
+    };
+  }
+
+  async refreshTokens(refreshTokenDto: RefreshTokenDto) {
+    try {
+      const payload = this.jwtService.verify(refreshTokenDto.refresh_token, {
+        secret: this.getRefreshSecret(),
+      }) as { sub: number; email: string };
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const tokens = this.issueTokenPair(user);
+
+      return {
+        ...tokens,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
+    const { email, name, password } = updateProfileDto;
+
+    if (!email && !name && !password) {
+      throw new BadRequestException('Provide at least one field to update');
+    }
+
+    if (email) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        throw new BadRequestException('User with this email already exists');
+      }
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(email ? { email } : {}),
+        ...(name ? { name } : {}),
+        ...(password ? { password: await bcrypt.hash(password, 10) } : {}),
+      },
+    });
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
     };
   }
 }

@@ -7,9 +7,11 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -64,6 +66,65 @@ export class AuthController {
   })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset link' })
+  @ApiResponse({
+    status: 200,
+    description: 'Reset link request accepted',
+    schema: {
+      example: {
+        message: 'If that email exists, a reset link was sent.',
+      },
+    },
+  })
+  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto).then(() => ({
+      message: 'If that email exists, a reset link was sent.',
+    }));
+  }
+
+  @Post('resend-reset')
+  @ApiOperation({ summary: 'Resend password reset link' })
+  @ApiResponse({
+    status: 200,
+    description: 'Reset link resent',
+    schema: {
+      example: {
+        message: 'Reset link resent.',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many reset requests for this email',
+  })
+  resendReset(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.resendReset(forgotPasswordDto).then(() => ({
+      message: 'Reset link resent.',
+    }));
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password updated successfully',
+    schema: {
+      example: {
+        message: 'Password updated successfully.',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Passwords do not match or reset token is invalid/expired',
+  })
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto).then(() => ({
+      message: 'Password updated successfully.',
+    }));
   }
 
   @Post('refresh')

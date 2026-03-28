@@ -32,7 +32,10 @@ export class CreateServerDto {
   @IsString()
   user?: string;
 
-  @ApiPropertyOptional({ enum: ['prod', 'live', 'qa', 'test'], example: 'prod' })
+  @ApiPropertyOptional({
+    enum: ['prod', 'live', 'qa', 'test'],
+    example: 'prod',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['prod', 'live', 'qa', 'test'])
@@ -48,7 +51,10 @@ export class CreateServerDto {
   @IsString()
   deploy?: string;
 
-  @ApiPropertyOptional({ enum: ['file', 'journalctl', 'docker'], example: 'file' })
+  @ApiPropertyOptional({
+    enum: ['file', 'journalctl', 'docker'],
+    example: 'file',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['file', 'journalctl', 'docker'])

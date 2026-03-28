@@ -47,7 +47,10 @@ export class KeysService {
   }
 
   async create(userId: number, input: CreateVaultKeyInput) {
-    if (!input.privateKey.includes('BEGIN') || !input.privateKey.includes('PRIVATE KEY')) {
+    if (
+      !input.privateKey.includes('BEGIN') ||
+      !input.privateKey.includes('PRIVATE KEY')
+    ) {
       throw new BadRequestException('Invalid SSH private key format.');
     }
 
@@ -149,7 +152,9 @@ export class KeysService {
         .on('error', (err) => {
           clearTimeout(timeout);
           client.end();
-          reject(new BadRequestException(`SSH verification failed: ${err.message}`));
+          reject(
+            new BadRequestException(`SSH verification failed: ${err.message}`),
+          );
         })
         .connect({
           host: input.host,

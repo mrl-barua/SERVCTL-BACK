@@ -384,7 +384,12 @@ export class ServersService {
       networkType: isPrivate ? 'private' : 'public',
     };
 
-    await this.applyAuthMethod(userId, { ...dto, authMethod: nextAuthMethod }, data, deployMode);
+    await this.applyAuthMethod(
+      userId,
+      { ...dto, authMethod: nextAuthMethod },
+      data,
+      deployMode,
+    );
 
     return data;
   }
@@ -409,7 +414,9 @@ export class ServersService {
 
     if (dto.authMethod === 'password') {
       if (!dto.password) {
-        throw new BadRequestException('Password is required for password auth.');
+        throw new BadRequestException(
+          'Password is required for password auth.',
+        );
       }
 
       serverData.passwordEnc = this.crypto.encrypt(dto.password);
@@ -421,7 +428,10 @@ export class ServersService {
         throw new BadRequestException('SSH private key is required.');
       }
 
-      if (!dto.sshKey.includes('BEGIN') || !dto.sshKey.includes('PRIVATE KEY')) {
+      if (
+        !dto.sshKey.includes('BEGIN') ||
+        !dto.sshKey.includes('PRIVATE KEY')
+      ) {
         throw new BadRequestException('Invalid SSH private key format.');
       }
 
@@ -443,7 +453,9 @@ export class ServersService {
 
       const fs = await import('fs');
       if (!fs.existsSync(dto.sshKeyPath)) {
-        throw new BadRequestException(`SSH key file not found: ${dto.sshKeyPath}`);
+        throw new BadRequestException(
+          `SSH key file not found: ${dto.sshKeyPath}`,
+        );
       }
 
       serverData.sshKeyPath = dto.sshKeyPath;

@@ -47,8 +47,7 @@ export class NetworkService {
         level: 'info',
         code: 'PRIVATE_HOST_LOCAL_MODE',
         title: 'Private network server',
-        message:
-          `${host} is a private IP. SERVCTL will connect directly from this machine.`,
+        message: `${host} is a private IP. SERVCTL will connect directly from this machine.`,
         suggestion:
           'Make sure this machine can reach the target server (same LAN, VPN connected, or same company network).',
         showInstallGuide: false,

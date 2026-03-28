@@ -21,7 +21,9 @@ export class SshService {
     private readonly crypto: CryptoService,
   ) {}
 
-  async buildConnectConfig(server: ServerConnectRecord): Promise<ConnectConfig> {
+  async buildConnectConfig(
+    server: ServerConnectRecord,
+  ): Promise<ConnectConfig> {
     const base: ConnectConfig = {
       host: server.host,
       port: server.port,

@@ -8,7 +8,9 @@ export class AppController {
   constructor(private readonly configService: ConfigService) {}
 
   @Get('config')
-  @ApiOperation({ summary: 'Get frontend runtime configuration and feature flags' })
+  @ApiOperation({
+    summary: 'Get frontend runtime configuration and feature flags',
+  })
   @ApiResponse({ status: 200, description: 'Configuration payload' })
   getConfig() {
     const deployMode = this.configService.get<string>('DEPLOY_MODE') || 'local';

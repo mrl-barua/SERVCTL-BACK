@@ -27,6 +27,8 @@ services:
       start_period: 20s
 
   backend:
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile
@@ -43,7 +45,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:3001}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:3001,http://localhost:5174}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       SMTP_HOST: ${SMTP_HOST:-}

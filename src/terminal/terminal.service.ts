@@ -138,20 +138,6 @@ export class TerminalService {
       };
     }
 
-    if (!this.isAllowed(clean)) {
-      this.logsService.appendLog(
-        session.context.serverId,
-        session.context.serverName,
-        'WARN',
-        `Blocked terminal command: ${clean}`,
-      );
-
-      return {
-        ok: false,
-        lines: [`Command blocked by security policy: ${clean}`],
-      };
-    }
-
     if (session.busy) {
       return {
         ok: false,
@@ -195,6 +181,12 @@ export class TerminalService {
     }
   }
 
+  // Expose session context for gateways that need session metadata (e.g. server user)
+  getSessionContext(socketId: string) {
+    const session = this.sessions.get(socketId);
+    return session ? session.context : null;
+  }
+
   closeSession(socketId: string) {
     const existing = this.sessions.get(socketId);
     if (!existing) {
@@ -210,35 +202,7 @@ export class TerminalService {
     this.sessions.delete(socketId);
   }
 
-  private isAllowed(command: string) {
-    const exact = new Set([
-      'uptime',
-      'df -h',
-      'free -h',
-      'docker ps',
-      'who',
-      'whoami',
-      'pwd',
-      'hostname',
-      'ss -tuln',
-      'last -10',
-      'ps aux --sort=-%cpu | head -10',
-      'sudo systemctl status nginx',
-      'sudo tail -50 /var/log/syslog',
-      'clear',
-      'exit',
-    ]);
-
-    if (exact.has(command)) {
-      return true;
-    }
-
-    if (command.startsWith('echo ')) {
-      return /^echo\s+[^;&|`$><\n\r]+$/.test(command);
-    }
-
-    return false;
-  }
+  // Command allowlist removed: SSH authentication/authorization is the security boundary.
 
   private openSshConnection(connectConfig: Record<string, any>) {
     return new Promise<Client>((resolve, reject) => {
@@ -273,7 +237,7 @@ export class TerminalService {
   private executeSshCommand(client: Client, command: string) {
     return new Promise<{ lines: string[]; exitCode: number }>(
       (resolve, reject) => {
-        client.exec(command, (err, stream) => {
+        client.exec(command, { pty: true }, (err, stream) => {
           if (err) {
             reject(new Error(`Failed to execute command: ${err.message}`));
             return;

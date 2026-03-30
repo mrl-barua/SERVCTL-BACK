@@ -17,7 +17,7 @@ services:
       SERVCTL_MODE: local
       DATABASE_PROVIDER: postgresql
       DATABASE_URL: postgresql://servctl:servctl@postgres:5432/servctl
-      CORS_ORIGIN: http://localhost:5173,http://localhost:3001
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:3001,http://localhost:5174}
     volumes:
       - ./src:/app/src
       - ./prisma:/app/prisma

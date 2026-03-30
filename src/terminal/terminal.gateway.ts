@@ -71,16 +71,44 @@ export class TerminalGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() body: { command: string },
   ) {
-    const result = await this.terminalService.executeAllowedCommand(
-      client.id,
-      body.command,
-    );
+    try {
+      const result = await this.terminalService.executeAllowedCommand(
+        client.id,
+        body.command,
+      );
 
-    client.emit('terminal:output', {
-      type: result.ok ? 'output' : 'error',
-      command: body.command,
-      lines: result.lines,
-    });
+      const outputText = (result.lines || []).join('\n').toLowerCase();
+      if (
+        outputText.includes('sudo: a terminal is required') ||
+        outputText.includes('sudo: a password is required')
+      ) {
+        const ctx = this.terminalService.getSessionContext(client.id);
+        const serverUser = ctx?.serverUser || 'remote-user';
+        const tip =
+          '[SERVCTL] Tip: For sudo to work, add NOPASSWD to /etc/sudoers on the remote server:\n' +
+          `  ${serverUser} ALL=(ALL) NOPASSWD: ALL`;
+
+        client.emit('terminal:output', {
+          type: result.ok ? 'output' : 'error',
+          command: body.command,
+          lines: [...result.lines, '', tip],
+        });
+        return;
+      }
+
+      client.emit('terminal:output', {
+        type: result.ok ? 'output' : 'error',
+        command: body.command,
+        lines: result.lines,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Terminal execution failed';
+      client.emit('terminal:output', {
+        type: 'error',
+        command: body.command,
+        lines: [message],
+      });
+    }
   }
 
   private async authenticate(client: Socket) {

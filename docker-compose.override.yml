@@ -8,10 +8,10 @@ name: servctl-local
 services:
   backend:
     build:
-      target: deps
-    command: npm run start:dev
+      target: runner
+    command: npm start
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       DEPLOY_MODE: local
       SERVCTL_MODE: local
       DATABASE_PROVIDER: sqlite

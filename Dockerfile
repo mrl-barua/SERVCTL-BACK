@@ -27,6 +27,7 @@ WORKDIR /app
 
 # Install production dependencies only.
 COPY package*.json ./
+COPY tsconfig.json ./
 COPY prisma ./prisma/
 
 RUN npm ci --omit=dev
@@ -50,4 +51,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
   CMD wget -qO- http://localhost:3000/health || exit 1
 
 # Run migrations, fallback to db push for local SQLite bootstrap, then start server.
-CMD ["sh", "-c", "npx prisma migrate deploy || npx prisma db push; node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy || npx prisma db push; npm start"]

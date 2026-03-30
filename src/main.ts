@@ -7,9 +7,14 @@ import { PrismaService } from './prisma/prisma.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
+  // Configure CORS: support comma-separated origins in CORS_ORIGIN
+  const corsEnv = process.env.CORS_ORIGIN || '';
+  const allowedOrigins = corsEnv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: allowedOrigins.length ? allowedOrigins : true,
     credentials: true,
   });
 

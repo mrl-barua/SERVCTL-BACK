@@ -1,35 +1,72 @@
+# SERVCTL - Local / Self-hosted mode
+# Uses SQLite. No external database required.
+# Usage: docker compose up -d
+
+name: servctl-local
+
 services:
-  # ======================
-  # PostgreSQL Database
-  # ======================
-  servctl-db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_DB: Servctl
-      POSTGRES_USER: developer
-      POSTGRES_PASSWORD: masterkey
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
-    volumes:
-      - servctl_db_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U developer -d Servctl"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: servctl-backend
     restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DEPLOY_MODE: local
+      SERVCTL_MODE: local
+      DATABASE_PROVIDER: sqlite
+      DATABASE_URL: file:/app/data/servctl.db
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@servctl.local}
+    volumes:
+      - servctl-data:/app/data
+      - ${SSH_KEYS_DIR:-~/.ssh}:/home/servctl/.ssh:ro
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
     networks:
-      - servctl-network
+      - servctl-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ../SERVCTL-FRONT
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_SERVCTL_MODE: local
+    container_name: servctl-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - servctl-net
 
 volumes:
-  servctl_db_data:
+  servctl-data:
     driver: local
+    name: servctl-local-data
 
 networks:
-  servctl-network:
+  servctl-net:
     driver: bridge
-  shared-network:
-    external: true
+    name: servctl-local-net

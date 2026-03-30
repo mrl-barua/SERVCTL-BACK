@@ -12,9 +12,10 @@ import { QuickCommandsModule } from './quick-commands/quick-commands.module';
 import { ServersModule } from './servers/servers.module';
 import { SshModule } from './ssh/ssh.module';
 import { TerminalModule } from './terminal/terminal.module';
+import { HealthController } from './health/health.controller';
 
 @Module({
-  controllers: [AppController],
+  controllers: [AppController, HealthController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,

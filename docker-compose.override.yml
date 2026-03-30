@@ -1,0 +1,45 @@
+# Development overrides - hot reload, source mounts
+# Automatically used by: docker compose up
+# To use production config only:
+#   docker compose -f docker-compose.yml up
+
+name: servctl-local
+
+services:
+  backend:
+    build:
+      target: deps
+    command: npm run start:dev
+    environment:
+      NODE_ENV: development
+      DEPLOY_MODE: local
+      SERVCTL_MODE: local
+      DATABASE_PROVIDER: sqlite
+      DATABASE_URL: file:/app/data/servctl.db
+      CORS_ORIGIN: http://localhost:5173
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - servctl-data:/app/data
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+
+  frontend:
+    build:
+      context: ../SERVCTL-FRONT
+      target: builder
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    environment:
+      VITE_API_URL: http://localhost:3000
+      VITE_SERVCTL_MODE: local
+    volumes:
+      - ../SERVCTL-FRONT/src:/app/src
+      - ../SERVCTL-FRONT/public:/app/public
+      - ../SERVCTL-FRONT/index.html:/app/index.html
+      - ../SERVCTL-FRONT/vite.config.js:/app/vite.config.js
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_started

@@ -373,6 +373,64 @@ Error responses follow this format:
 - Check environment variables are set
 - Verify database connection works
 
+## Docker Setup
+
+### Quick Start (Local / Self-hosted)
+
+```bash
+# 1. Create and configure environment
+make setup
+make generate-secrets
+# Paste the output into .env
+
+# 2. Start SERVCTL
+make up
+
+# Open http://localhost
+```
+
+### Cloud Mode (with PostgreSQL)
+
+```bash
+# Fill in .env with PostgreSQL and SMTP credentials
+# Then:
+make up-cloud
+```
+
+### Useful commands
+
+```bash
+make logs            # tail all container logs
+make logs-backend    # backend logs only
+make db-studio       # open Prisma Studio (DB browser)
+make db-migrate      # run pending migrations
+make down            # stop everything
+make clean           # stop + remove containers + images
+```
+
+### Ports
+
+| Service  | Default Port | Override via   |
+|----------|--------------|----------------|
+| Frontend | 80           | FRONTEND_PORT  |
+| Backend  | 3000         | BACKEND_PORT   |
+| Postgres | internal     | not exposed    |
+
+### SSH Key paths (local mode)
+
+The backend container mounts your local ~/.ssh directory read-only at
+/home/servctl/.ssh inside the container.
+When adding servers with SSH key auth, use paths like:
+
+- /home/servctl/.ssh/id_rsa
+- /home/servctl/.ssh/my-server-key.pem
+
+To use a different key directory:
+
+```bash
+SSH_KEYS_DIR=/path/to/your/keys make up
+```
+
 ## License
 
 MIT

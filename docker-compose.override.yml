@@ -9,7 +9,7 @@ services:
   backend:
     build:
       target: runner
-    command: npm start
+    command: ["sh", "-c", "npx prisma migrate deploy || npx prisma db push; npm start"]
     environment:
       NODE_ENV: production
       DEPLOY_MODE: local

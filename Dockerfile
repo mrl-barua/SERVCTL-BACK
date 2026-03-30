@@ -25,6 +25,9 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Install OpenSSL for Prisma compatibility
+RUN apk add --no-cache openssl openssl-dev
+
 # Install production dependencies only.
 COPY package*.json ./
 COPY tsconfig.json ./

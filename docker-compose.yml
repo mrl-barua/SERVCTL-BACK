@@ -1,10 +1,31 @@
 # SERVCTL - Local / Self-hosted mode
-# Uses SQLite. No external database required.
+# Uses PostgreSQL in the local Docker network.
 # Usage: docker compose up -d
 
 name: servctl-local
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: servctl-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: servctl
+      POSTGRES_PASSWORD: servctl
+      POSTGRES_DB: servctl
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - servctl-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U servctl -d servctl"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   backend:
     build:
       context: .
@@ -17,8 +38,8 @@ services:
       PORT: 3000
       DEPLOY_MODE: local
       SERVCTL_MODE: local
-      DATABASE_PROVIDER: sqlite
-      DATABASE_URL: file:/app/data/servctl.db
+      DATABASE_PROVIDER: postgresql
+      DATABASE_URL: postgresql://servctl:servctl@postgres:5432/servctl
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
@@ -31,12 +52,14 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@servctl.local}
     volumes:
-      - servctl-data:/app/data
       - ${SSH_KEYS_DIR:-~/.ssh}:/home/servctl/.ssh:ro
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     networks:
       - servctl-net
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s
@@ -45,9 +68,9 @@ services:
       start_period: 30s
 
 volumes:
-  servctl-data:
+  postgres-data:
     driver: local
-    name: servctl-local-data
+    name: servctl-local-postgres-data
 
 networks:
   servctl-net:

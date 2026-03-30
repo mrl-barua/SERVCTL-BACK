@@ -410,11 +410,11 @@ make clean           # stop + remove containers + images
 
 ### Ports
 
-| Service  | Default Port | Override via   |
-|----------|--------------|----------------|
-| Frontend | 80           | FRONTEND_PORT  |
-| Backend  | 3000         | BACKEND_PORT   |
-| Postgres | internal     | not exposed    |
+| Service  | Default Port | Override via  |
+| -------- | ------------ | ------------- |
+| Frontend | 80           | FRONTEND_PORT |
+| Backend  | 3000         | BACKEND_PORT  |
+| Postgres | internal     | not exposed   |
 
 ### SSH Key paths (local mode)
 

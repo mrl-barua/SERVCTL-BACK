@@ -13,9 +13,16 @@ async function bootstrap() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  const isDev = process.env.NODE_ENV !== 'production';
   app.enableCors({
-    origin: allowedOrigins.length ? allowedOrigins : true,
+    origin: allowedOrigins.length
+      ? allowedOrigins
+      : isDev
+        ? true
+        : false,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Global validation pipe

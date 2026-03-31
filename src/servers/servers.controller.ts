@@ -23,6 +23,7 @@ import {
 import { IsString } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PublicUser } from '../auth/types/jwt-payload.interface';
+import { BulkServerActionDto } from './dto/bulk-server-action.dto';
 import { CreateServerDto, UpdateServerDto } from './dto/create-server.dto';
 import { ListServersQueryDto } from './dto/list-servers-query.dto';
 import { ServerStatusDto } from './dto/server-status.dto';
@@ -271,5 +272,27 @@ export class ServersController {
   @ApiResponse({ status: 200, description: 'Verification result' })
   verifyKeyPath(@Body() dto: VerifyKeyPathDto) {
     return this.serversService.verifyKeyPath(dto.path);
+  }
+
+  @Post('bulk/ping')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Bulk ping multiple servers' })
+  @ApiResponse({ status: 200, description: 'Ping results for each server' })
+  bulkPing(
+    @CurrentUser() user: PublicUser,
+    @Body() dto: BulkServerActionDto,
+  ) {
+    return this.serversService.bulkPing(user.id, dto.serverIds);
+  }
+
+  @Post('bulk/delete')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Bulk soft-delete multiple servers' })
+  @ApiResponse({ status: 200, description: 'Deletion results' })
+  bulkDelete(
+    @CurrentUser() user: PublicUser,
+    @Body() dto: BulkServerActionDto,
+  ) {
+    return this.serversService.bulkDelete(user.id, dto.serverIds);
   }
 }

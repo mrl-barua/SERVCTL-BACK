@@ -13,6 +13,10 @@ import { LogsModule } from './logs/logs.module';
 import { NetworkModule } from './network/network.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QuickCommandsModule } from './quick-commands/quick-commands.module';
+import { ServerDisplayOrderModule } from './server-display-order/server-display-order.module';
+import { ServerGroupsModule } from './server-groups/server-groups.module';
+import { ServerHealthModule } from './server-health/server-health.module';
+import { ServerTagsModule } from './server-tags/server-tags.module';
 import { ServersModule } from './servers/servers.module';
 import { SshModule } from './ssh/ssh.module';
 import { TerminalModule } from './terminal/terminal.module';
@@ -60,6 +64,10 @@ import { HealthController } from './health/health.controller';
     SshModule,
     TerminalModule,
     QuickCommandsModule,
+    ServerDisplayOrderModule,
+    ServerGroupsModule,
+    ServerHealthModule,
+    ServerTagsModule,
   ],
   providers: [
     {

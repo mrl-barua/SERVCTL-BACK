@@ -43,4 +43,22 @@ export class ListServersQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Filter by server group ID',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  groupId?: number;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Filter by server tag ID',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  tagId?: number;
 }

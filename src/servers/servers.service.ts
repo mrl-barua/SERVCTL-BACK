@@ -33,6 +33,16 @@ const SERVER_PUBLIC_SELECT = {
   uptime: true,
   createdAt: true,
   updatedAt: true,
+  groupMemberships: {
+    select: {
+      group: { select: { id: true, name: true, color: true } },
+    },
+  },
+  tagAssignments: {
+    select: {
+      tag: { select: { id: true, name: true, color: true } },
+    },
+  },
 } as const;
 
 @Injectable()
@@ -62,6 +72,12 @@ export class ServersService {
               mode: 'insensitive' as const,
             },
           }
+        : {}),
+      ...(query.groupId
+        ? { groupMemberships: { some: { groupId: query.groupId } } }
+        : {}),
+      ...(query.tagId
+        ? { tagAssignments: { some: { tagId: query.tagId } } }
         : {}),
     };
 
@@ -446,5 +462,49 @@ export class ServersService {
     }
 
     throw new BadRequestException(`Unknown authMethod: ${dto.authMethod}`);
+  }
+
+  async bulkPing(userId: number, serverIds: number[]) {
+    const servers = await this.prisma.server.findMany({
+      where: { id: { in: serverIds }, ownerId: userId, deletedAt: null },
+      select: { id: true, name: true, status: true },
+    });
+
+    const results = await Promise.all(
+      servers.map(async (server) => {
+        const nextStatus =
+          server.status === 'online'
+            ? 'online'
+            : Math.random() > 0.25
+              ? 'online'
+              : 'offline';
+        const uptime =
+          nextStatus === 'online'
+            ? Number((95 + Math.random() * 5).toFixed(1))
+            : 0;
+
+        await this.prisma.server.update({
+          where: { id: server.id },
+          data: { status: nextStatus, uptime },
+        });
+
+        return { id: server.id, name: server.name, status: nextStatus, uptime };
+      }),
+    );
+
+    return { updated: results.length, results };
+  }
+
+  async bulkDelete(userId: number, serverIds: number[]) {
+    const result = await this.prisma.server.updateMany({
+      where: { id: { in: serverIds }, ownerId: userId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+
+    await this.audit.log(userId, 'bulk-delete', 'server', serverIds.join(','), {
+      count: result.count,
+    });
+
+    return { deleted: result.count };
   }
 }

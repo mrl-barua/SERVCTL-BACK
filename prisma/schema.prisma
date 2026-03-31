@@ -24,6 +24,10 @@ model User {
   sshKeyVault         SshKeyVault[]
   passwordResetTokens PasswordResetToken[]
   authCodes           AuthCode[]
+  serverGroups        ServerGroup[]
+  serverTags          ServerTag[]
+  displayOrders       ServerDisplayOrder[]
+  healthAlerts        HealthAlert[]
 
   @@unique([provider, providerId])
 }
@@ -54,8 +58,13 @@ model Server {
   deletedAt     DateTime?
   owner         User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId       Int
-  sshKeyVault   SshKeyVault? @relation(fields: [sshKeyVaultId], references: [id], onDelete: SetNull)
-  quickCommands QuickCommand[]
+  sshKeyVault      SshKeyVault?            @relation(fields: [sshKeyVaultId], references: [id], onDelete: SetNull)
+  quickCommands    QuickCommand[]
+  groupMemberships ServerGroupMembership[]
+  tagAssignments   ServerTagAssignment[]
+  healthSnapshots  ServerHealthSnapshot[]
+  displayOrders    ServerDisplayOrder[]
+  healthAlerts     HealthAlert[]
 
   @@index([ownerId])
   @@index([ownerId, status])
@@ -129,4 +138,111 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ── Server Groups ──────────────────────────────────────
+
+model ServerGroup {
+  id        Int                     @id @default(autoincrement())
+  name      String
+  color     String                  @default("#4f8ef7")
+  sortOrder Int                     @default(0)
+  ownerId   Int
+  owner     User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members   ServerGroupMembership[]
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+
+  @@index([ownerId])
+  @@index([ownerId, sortOrder])
+}
+
+model ServerGroupMembership {
+  id        Int         @id @default(autoincrement())
+  serverId  Int
+  server    Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  groupId   Int
+  group     ServerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sortOrder Int         @default(0)
+
+  @@unique([serverId, groupId])
+  @@index([groupId])
+}
+
+// ── Server Tags ────────────────────────────────────────
+
+model ServerTag {
+  id          Int                   @id @default(autoincrement())
+  name        String
+  color       String                @default("#4f8ef7")
+  ownerId     Int
+  owner       User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  assignments ServerTagAssignment[]
+  createdAt   DateTime              @default(now())
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
+model ServerTagAssignment {
+  id       Int       @id @default(autoincrement())
+  serverId Int
+  server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  tagId    Int
+  tag      ServerTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, tagId])
+  @@index([tagId])
+}
+
+// ── Server Health ──────────────────────────────────────
+
+model ServerHealthSnapshot {
+  id          String   @id @default(cuid())
+  serverId    Int
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  cpuPercent  Float
+  memPercent  Float
+  diskPercent Float
+  memTotalMb  Float    @default(0)
+  memUsedMb   Float    @default(0)
+  diskTotalGb Float    @default(0)
+  diskUsedGb  Float    @default(0)
+  loadAvg1    Float    @default(0)
+  loadAvg5    Float    @default(0)
+  loadAvg15   Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([serverId, createdAt])
+}
+
+model HealthAlert {
+  id        Int      @id @default(autoincrement())
+  serverId  Int
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  metric    String
+  threshold Float
+  direction String   @default("above")
+  active    Boolean  @default(true)
+  ownerId   Int
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([serverId])
+  @@index([ownerId])
+}
+
+// ── Display Order ──────────────────────────────────────
+
+model ServerDisplayOrder {
+  id        Int    @id @default(autoincrement())
+  userId    Int
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverId  Int
+  server    Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  context   String
+  sortOrder Int    @default(0)
+
+  @@unique([userId, serverId, context])
+  @@index([userId, context, sortOrder])
 }

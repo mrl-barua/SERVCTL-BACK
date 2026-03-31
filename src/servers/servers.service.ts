@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { CryptoService } from '../crypto/crypto.service';
 import { NetworkService } from '../network/network.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SshService } from '../ssh/ssh.service';
 import { ListServersQueryDto } from './dto/list-servers-query.dto';
 import { CreateServerDto, UpdateServerDto } from './dto/create-server.dto';
 import { UpdateServerStatusDto } from './dto/update-server-status.dto';
@@ -53,6 +54,7 @@ export class ServersService {
     private readonly crypto: CryptoService,
     private readonly networkService: NetworkService,
     private readonly audit: AuditService,
+    private readonly ssh: SshService,
   ) {}
 
   async findAll(userId: number, query: ListServersQueryDto) {
@@ -467,28 +469,39 @@ export class ServersService {
   async bulkPing(userId: number, serverIds: number[]) {
     const servers = await this.prisma.server.findMany({
       where: { id: { in: serverIds }, ownerId: userId, deletedAt: null },
-      select: { id: true, name: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        host: true,
+        port: true,
+        user: true,
+        authMethod: true,
+        passwordEnc: true,
+        sshKeyEnc: true,
+        sshKeyPath: true,
+        sshKeyVaultId: true,
+      },
     });
 
     const results = await Promise.all(
       servers.map(async (server) => {
-        const nextStatus =
-          server.status === 'online'
-            ? 'online'
-            : Math.random() > 0.25
-              ? 'online'
-              : 'offline';
-        const uptime =
-          nextStatus === 'online'
-            ? Number((95 + Math.random() * 5).toFixed(1))
-            : 0;
+        const pingResult = await this.ssh.pingServer(server);
+        const nextStatus = pingResult.online ? 'online' : 'offline';
+        const uptime = pingResult.online ? 100 : 0;
 
         await this.prisma.server.update({
           where: { id: server.id },
           data: { status: nextStatus, uptime },
         });
 
-        return { id: server.id, name: server.name, status: nextStatus, uptime };
+        return {
+          id: server.id,
+          name: server.name,
+          status: nextStatus,
+          uptime,
+          latencyMs: pingResult.latencyMs,
+          error: pingResult.error,
+        };
       }),
     );
 

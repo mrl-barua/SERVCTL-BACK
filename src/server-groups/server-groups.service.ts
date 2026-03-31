@@ -12,13 +12,25 @@ export class ServerGroupsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(userId: number) {
-    return this.prisma.serverGroup.findMany({
+    const groups = await this.prisma.serverGroup.findMany({
       where: { ownerId: userId },
       orderBy: { sortOrder: 'asc' },
       include: {
         _count: { select: { members: true } },
+        members: { select: { serverId: true } },
       },
     });
+
+    return groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      color: g.color,
+      sortOrder: g.sortOrder,
+      createdAt: g.createdAt,
+      updatedAt: g.updatedAt,
+      _count: { members: g._count.members },
+      serverIds: g.members.map((m) => m.serverId),
+    }));
   }
 
   async create(userId: number, dto: CreateServerGroupDto) {
@@ -126,12 +138,24 @@ export class ServerGroupsService {
       skipDuplicates: true,
     });
 
-    return this.prisma.serverGroup.findUnique({
+    const updated = await this.prisma.serverGroup.findUnique({
       where: { id },
       include: {
         _count: { select: { members: true } },
+        members: { select: { serverId: true } },
       },
     });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      color: updated.color,
+      sortOrder: updated.sortOrder,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      _count: { members: updated._count.members },
+      serverIds: updated.members.map((m) => m.serverId),
+    };
   }
 
   async removeServer(id: number, userId: number, serverId: number) {

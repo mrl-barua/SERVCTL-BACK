@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ConnectConfig } from 'ssh2';
+import { Injectable, Logger } from '@nestjs/common';
+import { Client, ConnectConfig } from 'ssh2';
 import { CryptoService } from '../crypto/crypto.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -16,6 +16,8 @@ interface ServerConnectRecord {
 
 @Injectable()
 export class SshService {
+  private readonly logger = new Logger(SshService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
@@ -90,6 +92,44 @@ export class SshService {
 
       default:
         throw new Error(`Unknown authMethod: ${server.authMethod}`);
+    }
+  }
+
+  /**
+   * Attempt a real SSH connection to check if a server is reachable.
+   * Returns { online: true, latencyMs } on success, { online: false, error } on failure.
+   */
+  async pingServer(
+    server: ServerConnectRecord,
+  ): Promise<{ online: boolean; latencyMs?: number; error?: string }> {
+    try {
+      const config = await this.buildConnectConfig(server);
+      const start = Date.now();
+
+      return await new Promise((resolve) => {
+        const client = new Client();
+        const timeout = setTimeout(() => {
+          client.end();
+          resolve({ online: false, error: 'Connection timed out' });
+        }, 10000);
+
+        client
+          .on('ready', () => {
+            clearTimeout(timeout);
+            const latencyMs = Date.now() - start;
+            client.end();
+            resolve({ online: true, latencyMs });
+          })
+          .on('error', (err) => {
+            clearTimeout(timeout);
+            client.end();
+            resolve({ online: false, error: err.message });
+          })
+          .connect(config);
+      });
+    } catch (err) {
+      this.logger.warn(`Ping failed for ${server.host}: ${err.message}`);
+      return { online: false, error: err.message };
     }
   }
 }

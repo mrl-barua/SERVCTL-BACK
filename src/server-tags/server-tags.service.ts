@@ -18,6 +18,7 @@ export class ServerTagsService {
       orderBy: { createdAt: 'desc' },
       include: {
         _count: { select: { assignments: true } },
+        assignments: { select: { serverId: true } },
       },
     });
 
@@ -26,7 +27,8 @@ export class ServerTagsService {
       name: tag.name,
       color: tag.color,
       createdAt: tag.createdAt,
-      assignmentCount: tag._count.assignments,
+      _count: { assignments: tag._count.assignments },
+      serverIds: tag.assignments.map((a) => a.serverId),
     }));
   }
 
@@ -55,7 +57,7 @@ export class ServerTagsService {
       name: tag.name,
       color: tag.color,
       createdAt: tag.createdAt,
-      assignmentCount: tag._count.assignments,
+      _count: { assignments: tag._count.assignments },
     };
   }
 
@@ -99,7 +101,7 @@ export class ServerTagsService {
       name: updated.name,
       color: updated.color,
       createdAt: updated.createdAt,
-      assignmentCount: updated._count.assignments,
+      _count: { assignments: updated._count.assignments },
     };
   }
 
@@ -157,7 +159,23 @@ export class ServerTagsService {
       skipDuplicates: true,
     });
 
-    return { message: 'Tag assigned successfully' };
+    // Return the updated tag with fresh count and member server IDs
+    const updated = await this.prisma.serverTag.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { assignments: true } },
+        assignments: { select: { serverId: true } },
+      },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      color: updated.color,
+      createdAt: updated.createdAt,
+      _count: { assignments: updated._count.assignments },
+      serverIds: updated.assignments.map((a) => a.serverId),
+    };
   }
 
   async unassign(id: number, serverId: number, userId: number) {

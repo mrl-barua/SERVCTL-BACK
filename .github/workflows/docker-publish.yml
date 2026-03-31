@@ -80,8 +80,8 @@ jobs:
     name: Notify Deploy Ready
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/main' || 
-        github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/master'
     steps:
       - name: Deploy ready
         run: |

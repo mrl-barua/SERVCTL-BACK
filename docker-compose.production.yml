@@ -12,7 +12,6 @@
 name: servctl
 
 services:
-
   # -- Backend (NestJS) ----------------------------------
   backend:
     image: ghcr.io/mrl-barua/servctl-backend:${BACKEND_TAG:-latest}
@@ -76,8 +75,7 @@ services:
       - servctl-net
 
     healthcheck:
-      test: ["CMD-SHELL",
-             "wget -qO- http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -108,8 +106,7 @@ services:
       - servctl-net
 
     healthcheck:
-      test: ["CMD-SHELL",
-             "wget -q --spider http://localhost:80/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

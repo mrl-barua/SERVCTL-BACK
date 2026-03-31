@@ -40,7 +40,7 @@ jobs:
 
       - name: Run tests
         run: npm run test
-        continue-on-error: true   # don't fail if no tests yet
+        continue-on-error: true # don't fail if no tests yet
         env:
           DATABASE_URL: file:./test.db
           JWT_SECRET: test-secret-for-ci

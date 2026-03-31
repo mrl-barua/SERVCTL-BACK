@@ -1,0 +1,127 @@
+# SERVCTL Local Build & Deploy
+#
+# Use this file for first-time deployments when images don't exist on ghcr.io
+# This builds frontend and backend from source.
+#
+# Usage:
+#   docker compose -f docker-compose.build.yml up -d
+#
+
+name: servctl
+
+services:
+
+  # -- Backend (NestJS) ----------------------------------
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: servctl-backend
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+
+      # Mode: local (SQLite) or cloud (PostgreSQL)
+      SERVCTL_MODE: ${SERVCTL_MODE:-local}
+
+      # Database
+      # Local:  DATABASE_URL=file:/app/data/servctl.db
+      # Cloud:  DATABASE_URL=postgresql://user:pass@host/db
+      DATABASE_URL: ${DATABASE_URL:-file:/app/data/servctl.db}
+
+      # Security - REQUIRED
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
+
+      # URLs
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+
+      # Email (optional - for password reset)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@servctl.dev}
+
+      # SSO OAuth (optional)
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      FACEBOOK_CALLBACK_URL: ${FACEBOOK_CALLBACK_URL:-}
+
+    volumes:
+      - servctl-data:/app/data
+      - ${SSH_KEYS_DIR:-~/.ssh}:/home/servctl/.ssh:ro
+
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+
+    networks:
+      - servctl-net
+
+    healthcheck:
+      test: ["CMD-SHELL",
+             "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -- Frontend (nginx + Vue 3) --------------------------
+  frontend:
+    build:
+      context: ../SERVCTL-FRONT
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_SERVCTL_MODE: ${VITE_SERVCTL_MODE:-local}
+    container_name: servctl-frontend
+    restart: unless-stopped
+
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    networks:
+      - servctl-net
+
+    healthcheck:
+      test: ["CMD-SHELL",
+             "wget -q --spider http://localhost:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  servctl-data:
+    driver: local
+    name: servctl-data
+
+networks:
+  servctl-net:
+    driver: bridge
+    name: servctl-net

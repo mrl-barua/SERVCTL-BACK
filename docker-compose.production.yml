@@ -1,13 +1,22 @@
 # SERVCTL Production Deployment
 #
 # Prerequisites:
-#   1. Copy this file to your server
+#   1. Copy this file and docker-compose.build.yml to your server
 #   2. Copy .env.production.example to .env and fill in values
-#   3. Run: docker compose -f docker-compose.production.yml up -d
+#   3. For first deployment (build from source):
+#      docker compose -f docker-compose.build.yml up -d
+#   4. For subsequent deployments (pull from ghcr.io):
+#      docker compose -f docker-compose.production.yml pull
+#      docker compose -f docker-compose.production.yml up -d
 #
 # Images are pulled from GitHub Container Registry (ghcr.io)
-# Frontend image is public - no auth needed
-# Backend image is private - requires GHCR_TOKEN in .env
+# Frontend image repository: ghcr.io/mrl-barua/servctl-frontend
+# Backend image repository: ghcr.io/mrl-barua/servctl-backend
+#
+# If images don't exist on ghcr.io yet:
+#   - Use docker-compose.build.yml to build from source
+#   - Or wait for initial push to ghcr.io after first main branch commit
+#   - Backend image requires GHCR_TOKEN with read:packages scope if private
 
 name: servctl
 
@@ -17,12 +26,16 @@ services:
     image: ghcr.io/mrl-barua/servctl-backend:${BACKEND_TAG:-latest}
     container_name: servctl-backend
     restart: unless-stopped
+    pull_policy: if_not_present
 
-    # Pull private image - requires auth
-    # Set GHCR_TOKEN in .env (GitHub Personal Access Token
-    # with read:packages scope)
-    # Run before docker compose up:
-    #   echo $GHCR_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+    # If this image doesn't exist on ghcr.io yet:
+    #   Use docker-compose.build.yml instead, which builds from source
+    #
+    # For private repo with auth:
+    #   Set GHCR_TOKEN in .env (GitHub PAT with read:packages scope)
+    #
+    # To authenticate manually:
+    #   echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USERNAME --password-stdin
 
     environment:
       NODE_ENV: production
@@ -92,8 +105,10 @@ services:
     image: ghcr.io/mrl-barua/servctl-frontend:${FRONTEND_TAG:-latest}
     container_name: servctl-frontend
     restart: unless-stopped
+    pull_policy: if_not_present
 
-    # Frontend image is PUBLIC - no auth needed
+    # If this image doesn't exist on ghcr.io yet:
+    #   Use docker-compose.build.yml instead, which builds from source
 
     ports:
       - "${FRONTEND_PORT:-80}:80"

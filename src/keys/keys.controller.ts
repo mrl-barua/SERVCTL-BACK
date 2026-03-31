@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PublicUser } from '../auth/types/jwt-payload.interface';
 import { KeysService } from './keys.service';
 
 class CreateKeyDto {
@@ -54,21 +55,21 @@ export class KeysController {
   @Post()
   @ApiOperation({ summary: 'Upload/save SSH key into key vault' })
   @ApiResponse({ status: 201, description: 'SSH key saved' })
-  create(@CurrentUser() user: any, @Body() dto: CreateKeyDto) {
+  create(@CurrentUser() user: PublicUser, @Body() dto: CreateKeyDto) {
     return this.keysService.create(user.id, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List current user SSH keys (without private key)' })
   @ApiResponse({ status: 200, description: 'SSH keys listed' })
-  list(@CurrentUser() user: any) {
+  list(@CurrentUser() user: PublicUser) {
     return this.keysService.list(user.id);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete SSH key from vault' })
   @ApiResponse({ status: 200, description: 'SSH key deleted' })
-  remove(@CurrentUser() user: any, @Param('id') id: string) {
+  remove(@CurrentUser() user: PublicUser, @Param('id') id: string) {
     return this.keysService.remove(user.id, id);
   }
 
@@ -76,7 +77,7 @@ export class KeysController {
   @ApiOperation({ summary: 'Verify SSH key with SSH handshake only' })
   @ApiResponse({ status: 200, description: 'SSH key verified' })
   verify(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('id') id: string,
     @Body() dto: VerifyKeyDto,
   ) {

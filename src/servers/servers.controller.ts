@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PublicUser } from '../auth/types/jwt-payload.interface';
 import { CreateServerDto, UpdateServerDto } from './dto/create-server.dto';
 import { ListServersQueryDto } from './dto/list-servers-query.dto';
 import { ServerStatusDto } from './dto/server-status.dto';
@@ -63,7 +64,7 @@ export class ServersController {
     status: 401,
     description: 'Unauthorized - missing or invalid token',
   })
-  findAll(@CurrentUser() user: any, @Query() query: ListServersQueryDto) {
+  findAll(@CurrentUser() user: PublicUser, @Query() query: ListServersQueryDto) {
     return this.serversService.findAll(user.id, query);
   }
 
@@ -104,7 +105,7 @@ export class ServersController {
     status: 404,
     description: 'Server not found',
   })
-  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: PublicUser) {
     return this.serversService.findOne(id, user.id);
   }
 
@@ -136,7 +137,7 @@ export class ServersController {
     status: 401,
     description: 'Unauthorized - missing or invalid token',
   })
-  create(@Body() serverDto: CreateServerDto, @CurrentUser() user: any) {
+  create(@Body() serverDto: CreateServerDto, @CurrentUser() user: PublicUser) {
     return this.serversService.create(user.id, serverDto);
   }
 
@@ -170,7 +171,7 @@ export class ServersController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateServerDto: UpdateServerDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
   ) {
     return this.serversService.update(id, user.id, updateServerDto);
   }
@@ -198,7 +199,7 @@ export class ServersController {
     status: 404,
     description: 'Server not found',
   })
-  delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+  delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: PublicUser) {
     return this.serversService.delete(id, user.id);
   }
 
@@ -228,7 +229,7 @@ export class ServersController {
   })
   getServerStatus(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
   ) {
     return this.serversService.getServerStatus(id, user.id);
   }
@@ -258,7 +259,7 @@ export class ServersController {
   })
   updateServerStatus(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Body() updateServerStatusDto: UpdateServerStatusDto,
   ) {
     return this.serversService.updateStatus(id, user.id, updateServerStatusDto);

@@ -8,7 +8,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Response } from 'express';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import { Request, Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -16,6 +17,8 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { PublicUser } from './types/jwt-payload.interface';
+import { ExchangeCodeDto } from './dto/exchange-code.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -45,9 +48,10 @@ export class AuthController {
   @UseGuards(AuthGuard('github'))
   @ApiOperation({ summary: 'Handle GitHub OAuth callback' })
   @ApiResponse({ status: 302, description: 'Redirect to frontend callback' })
-  githubCallback(@Req() req: any, @Res() res: Response) {
-    const token = encodeURIComponent(req.user.access_token);
-    res.redirect(`${this.getFrontendUrl()}/auth/callback?token=${token}`);
+  async githubCallback(@Req() req: Request, @Res() res: Response) {
+    const ssoResult = req.user as { user: PublicUser };
+    const code = await this.authService.createAuthCode(ssoResult.user.id);
+    res.redirect(`${this.getFrontendUrl()}/auth/callback?code=${code}`);
   }
 
   @Get('google')
@@ -62,9 +66,10 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   @ApiOperation({ summary: 'Handle Google OAuth callback' })
   @ApiResponse({ status: 302, description: 'Redirect to frontend callback' })
-  googleCallback(@Req() req: any, @Res() res: Response) {
-    const token = encodeURIComponent(req.user.access_token);
-    res.redirect(`${this.getFrontendUrl()}/auth/callback?token=${token}`);
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
+    const ssoResult = req.user as { user: PublicUser };
+    const code = await this.authService.createAuthCode(ssoResult.user.id);
+    res.redirect(`${this.getFrontendUrl()}/auth/callback?code=${code}`);
   }
 
   @Get('facebook')
@@ -79,12 +84,33 @@ export class AuthController {
   @UseGuards(AuthGuard('facebook'))
   @ApiOperation({ summary: 'Handle Facebook OAuth callback' })
   @ApiResponse({ status: 302, description: 'Redirect to frontend callback' })
-  facebookCallback(@Req() req: any, @Res() res: Response) {
-    const token = encodeURIComponent(req.user.access_token);
-    res.redirect(`${this.getFrontendUrl()}/auth/callback?token=${token}`);
+  async facebookCallback(@Req() req: Request, @Res() res: Response) {
+    const ssoResult = req.user as { user: PublicUser };
+    const code = await this.authService.createAuthCode(ssoResult.user.id);
+    res.redirect(`${this.getFrontendUrl()}/auth/callback?code=${code}`);
+  }
+
+  @Post('exchange-code')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Exchange one-time OAuth code for tokens' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens issued successfully',
+    schema: {
+      example: {
+        access_token: 'eyJhbGciOiJIUzI1NiIs...',
+        refresh_token: 'eyJhbGciOiJIUzI1NiIs...',
+        user: { id: 1, email: 'user@example.com', name: 'John Doe' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired code' })
+  exchangeCode(@Body() exchangeCodeDto: ExchangeCodeDto) {
+    return this.authService.exchangeAuthCode(exchangeCodeDto.code);
   }
 
   @Post('register')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
     status: 201,
@@ -109,6 +135,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({
     status: 200,
@@ -133,6 +160,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Request password reset link' })
   @ApiResponse({
     status: 200,
@@ -150,6 +178,7 @@ export class AuthController {
   }
 
   @Post('resend-reset')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Resend password reset link' })
   @ApiResponse({
     status: 200,
@@ -226,7 +255,7 @@ export class AuthController {
     status: 401,
     description: 'Unauthorized - missing or invalid token',
   })
-  getCurrentUser(@CurrentUser() user: any) {
+  getCurrentUser(@CurrentUser() user: PublicUser) {
     return user;
   }
 
@@ -247,7 +276,7 @@ export class AuthController {
     description: 'Unauthorized - missing or invalid token',
   })
   updateProfile(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(user.id, updateProfileDto);

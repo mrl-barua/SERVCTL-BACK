@@ -51,8 +51,8 @@ export class AuthService {
     );
   }
 
-  private getRefreshExpiresIn() {
-    return (process.env.JWT_REFRESH_EXPIRES_IN ?? '30d') as any;
+  private getRefreshExpiresIn(): `${number}d` {
+    return (process.env.JWT_REFRESH_EXPIRES_IN ?? '30d') as `${number}d`;
   }
 
   private issueTokenPair(user: { id: number; email: string }) {
@@ -139,6 +139,44 @@ export class AuthService {
       resetUrl,
       expiresInMinutes: 15,
     });
+  }
+
+  async createAuthCode(userId: number): Promise<string> {
+    const code = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds
+
+    await this.prisma.authCode.create({
+      data: {
+        code,
+        userId,
+        expiresAt,
+      },
+    });
+
+    return code;
+  }
+
+  async exchangeAuthCode(code: string) {
+    const record = await this.prisma.authCode.findUnique({
+      where: { code },
+      include: { user: true },
+    });
+
+    if (!record || record.used || record.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired auth code');
+    }
+
+    await this.prisma.authCode.update({
+      where: { id: record.id },
+      data: { used: true },
+    });
+
+    const tokens = this.issueTokenPair(record.user);
+
+    return {
+      ...tokens,
+      user: this.toPublicUser(record.user),
+    };
   }
 
   async register(registerDto: RegisterDto) {

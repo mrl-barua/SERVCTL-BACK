@@ -5,12 +5,35 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { CryptoService } from '../crypto/crypto.service';
 import { NetworkService } from '../network/network.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListServersQueryDto } from './dto/list-servers-query.dto';
 import { CreateServerDto, UpdateServerDto } from './dto/create-server.dto';
 import { UpdateServerStatusDto } from './dto/update-server-status.dto';
+
+const SERVER_PUBLIC_SELECT = {
+  id: true,
+  name: true,
+  host: true,
+  user: true,
+  port: true,
+  env: true,
+  notes: true,
+  deploy: true,
+  logPath: true,
+  logType: true,
+  dockerName: true,
+  authMethod: true,
+  sshKeyLabel: true,
+  networkType: true,
+  status: true,
+  uptime: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 @Injectable()
 export class ServersService {
@@ -19,6 +42,7 @@ export class ServersService {
     private readonly config: ConfigService,
     private readonly crypto: CryptoService,
     private readonly networkService: NetworkService,
+    private readonly audit: AuditService,
   ) {}
 
   async findAll(userId: number, query: ListServersQueryDto) {
@@ -28,6 +52,7 @@ export class ServersService {
 
     const where = {
       ownerId: userId,
+      deletedAt: null,
       ...(query.env ? { env: query.env } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.search
@@ -46,26 +71,7 @@ export class ServersService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          host: true,
-          user: true,
-          port: true,
-          env: true,
-          notes: true,
-          deploy: true,
-          logPath: true,
-          logType: true,
-          dockerName: true,
-          authMethod: true,
-          sshKeyLabel: true,
-          networkType: true,
-          status: true,
-          uptime: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: SERVER_PUBLIC_SELECT,
       }),
       this.prisma.server.count({ where }),
     ]);
@@ -111,24 +117,7 @@ export class ServersService {
     const server = await this.prisma.server.findUnique({
       where: { id },
       select: {
-        id: true,
-        name: true,
-        host: true,
-        user: true,
-        port: true,
-        env: true,
-        notes: true,
-        deploy: true,
-        logPath: true,
-        logType: true,
-        dockerName: true,
-        authMethod: true,
-        sshKeyLabel: true,
-        networkType: true,
-        status: true,
-        uptime: true,
-        createdAt: true,
-        updatedAt: true,
+        ...SERVER_PUBLIC_SELECT,
         ownerId: true,
       },
     });
@@ -158,7 +147,7 @@ export class ServersService {
       });
     }
 
-    const serverData: any = {
+    const serverData: Record<string, unknown> = {
       ownerId: userId,
       name: dto.name,
       host: dto.host,
@@ -177,27 +166,8 @@ export class ServersService {
     await this.applyAuthMethod(userId, dto, serverData, deployMode);
 
     return this.prisma.server.create({
-      data: serverData,
-      select: {
-        id: true,
-        name: true,
-        host: true,
-        user: true,
-        port: true,
-        env: true,
-        notes: true,
-        deploy: true,
-        logPath: true,
-        logType: true,
-        dockerName: true,
-        authMethod: true,
-        sshKeyLabel: true,
-        networkType: true,
-        status: true,
-        uptime: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      data: serverData as Prisma.ServerUncheckedCreateInput,
+      select: SERVER_PUBLIC_SELECT,
     });
   }
 
@@ -217,32 +187,13 @@ export class ServersService {
 
     const updatedServer = await this.prisma.server.update({
       where: { id },
-      data: await this.buildUpdatePayload(
+      data: (await this.buildUpdatePayload(
         id,
         userId,
         updateServerDto,
         this.config.get<string>('DEPLOY_MODE') || 'local',
-      ),
-      select: {
-        id: true,
-        name: true,
-        host: true,
-        user: true,
-        port: true,
-        env: true,
-        notes: true,
-        deploy: true,
-        logPath: true,
-        logType: true,
-        dockerName: true,
-        authMethod: true,
-        sshKeyLabel: true,
-        networkType: true,
-        status: true,
-        uptime: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      )) as Prisma.ServerUncheckedUpdateInput,
+      select: SERVER_PUBLIC_SELECT,
     });
 
     return updatedServer;
@@ -262,9 +213,12 @@ export class ServersService {
       throw new ForbiddenException('You do not have access to this server');
     }
 
-    await this.prisma.server.delete({
+    await this.prisma.server.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
+
+    await this.audit.log(userId, 'delete', 'server', id, { softDelete: true });
 
     return { message: 'Server deleted successfully' };
   }
@@ -376,7 +330,7 @@ export class ServersService {
       dto.sshKeyPath !== undefined ||
       dto.vaultKeyId !== undefined;
 
-    const data: any = {
+    const data: Record<string, unknown> = {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.host !== undefined ? { host: dto.host } : {}),
       ...(dto.port !== undefined ? { port: dto.port } : {}),
@@ -413,7 +367,7 @@ export class ServersService {
       sshKeyPath?: string;
       vaultKeyId?: string;
     },
-    serverData: any,
+    serverData: Record<string, unknown>,
     deployMode: string,
   ) {
     serverData.passwordEnc = null;

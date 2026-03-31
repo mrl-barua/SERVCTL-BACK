@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LogsService } from '../logs/logs.service';
@@ -26,16 +27,39 @@ export interface DeployState {
 }
 
 @Injectable()
-export class DeployService {
+export class DeployService implements OnModuleDestroy {
   private readonly states = new Map<number, DeployState>();
   private readonly history = new Map<number, string[]>();
   private readonly timers = new Map<number, NodeJS.Timeout>();
   private readonly listeners = new Set<(payload: DeployState) => void>();
+  private cleanupTimer: NodeJS.Timeout;
 
   constructor(
     private prisma: PrismaService,
     private logsService: LogsService,
-  ) {}
+  ) {
+    // Periodically clean up completed/failed deploy states older than 1 hour
+    this.cleanupTimer = setInterval(() => this.cleanupStaleEntries(), 60000);
+  }
+
+  onModuleDestroy() {
+    clearInterval(this.cleanupTimer);
+    this.timers.forEach((timer) => clearInterval(timer));
+    this.timers.clear();
+  }
+
+  private cleanupStaleEntries() {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    for (const [serverId, state] of this.states) {
+      if (
+        (state.status === 'done' || state.status === 'failed') &&
+        new Date(state.updatedAt).getTime() < oneHourAgo
+      ) {
+        this.states.delete(serverId);
+        this.history.delete(serverId);
+      }
+    }
+  }
 
   onProgress(listener: (payload: DeployState) => void) {
     this.listeners.add(listener);

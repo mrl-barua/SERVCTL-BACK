@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { Client } from 'ssh2';
 import { LogsService } from '../logs/logs.service';
@@ -24,9 +25,20 @@ interface ActiveSession {
 }
 
 @Injectable()
-export class TerminalService {
+export class TerminalService implements OnModuleDestroy {
   private readonly sessions = new Map<string, ActiveSession>();
   private readonly commandTimeoutMs = 15000;
+
+  onModuleDestroy() {
+    for (const [sessionId, session] of this.sessions) {
+      try {
+        session.client.end();
+      } catch {
+        // Ignore errors during shutdown
+      }
+    }
+    this.sessions.clear();
+  }
 
   constructor(
     private readonly prisma: PrismaService,

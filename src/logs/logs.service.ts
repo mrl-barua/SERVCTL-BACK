@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -17,10 +18,29 @@ export interface ServerLogEntry {
 }
 
 @Injectable()
-export class LogsService {
+export class LogsService implements OnModuleDestroy {
   private readonly entriesByServer = new Map<number, ServerLogEntry[]>();
+  private readonly lastAccessByServer = new Map<number, number>();
+  private cleanupTimer: NodeJS.Timeout;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {
+    // Evict server log entries not accessed in 30 minutes
+    this.cleanupTimer = setInterval(() => this.cleanupStaleEntries(), 60000);
+  }
+
+  onModuleDestroy() {
+    clearInterval(this.cleanupTimer);
+  }
+
+  private cleanupStaleEntries() {
+    const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
+    for (const [serverId, lastAccess] of this.lastAccessByServer) {
+      if (lastAccess < thirtyMinAgo) {
+        this.entriesByServer.delete(serverId);
+        this.lastAccessByServer.delete(serverId);
+      }
+    }
+  }
 
   async assertOwnership(serverId: number, userId: number) {
     const server = await this.prisma.server.findUnique({
@@ -48,6 +68,7 @@ export class LogsService {
   ) {
     const server = await this.assertOwnership(serverId, userId);
     this.seedServerLogs(server.id, server.name);
+    this.lastAccessByServer.set(server.id, Date.now());
 
     let entries = [...(this.entriesByServer.get(server.id) || [])];
 
@@ -74,6 +95,7 @@ export class LogsService {
     message: string,
   ) {
     const current = this.entriesByServer.get(serverId) || [];
+    this.lastAccessByServer.set(serverId, Date.now());
 
     current.unshift({
       id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

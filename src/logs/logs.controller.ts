@@ -15,6 +15,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PublicUser } from '../auth/types/jwt-payload.interface';
 import { LogsService } from './logs.service';
 
 @ApiTags('logs')
@@ -34,7 +35,7 @@ export class LogsController {
     description: 'Logs fetched successfully',
   })
   getLogs(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('serverId', ParseIntPipe) serverId: number,
     @Query('limit') limit?: string,
     @Query('level') level?: string,

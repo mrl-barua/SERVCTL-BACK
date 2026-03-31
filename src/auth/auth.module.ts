@@ -20,7 +20,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'your-super-secret-key-change-this',
       signOptions: {
-        expiresIn: (process.env.JWT_EXPIRES_IN ?? '7d') as any,
+        expiresIn: (process.env.JWT_EXPIRES_IN ?? '7d') as `${number}d`,
       },
     }),
   ],

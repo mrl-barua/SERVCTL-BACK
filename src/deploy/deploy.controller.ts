@@ -14,6 +14,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PublicUser } from '../auth/types/jwt-payload.interface';
 import { DeployService } from './deploy.service';
 
 @ApiTags('deploy')
@@ -27,7 +28,7 @@ export class DeployController {
   @ApiOperation({ summary: 'Get deploy status for a server' })
   @ApiResponse({ status: 200, description: 'Deploy status fetched' })
   getStatus(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('serverId', ParseIntPipe) serverId: number,
   ) {
     return this.deployService.getStatus(user.id, serverId);
@@ -37,7 +38,7 @@ export class DeployController {
   @ApiOperation({ summary: 'Get deploy history lines for a server' })
   @ApiResponse({ status: 200, description: 'Deploy history fetched' })
   getHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('serverId', ParseIntPipe) serverId: number,
   ) {
     return this.deployService.getHistory(user.id, serverId);
@@ -54,7 +55,7 @@ export class DeployController {
   @ApiOperation({ summary: 'Start deployment for a server' })
   @ApiResponse({ status: 200, description: 'Deploy started' })
   start(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('serverId', ParseIntPipe) serverId: number,
   ) {
     return this.deployService.startDeploy(user.id, serverId);
@@ -64,7 +65,7 @@ export class DeployController {
   @ApiOperation({ summary: 'Stop deployment for a server' })
   @ApiResponse({ status: 200, description: 'Deploy stopped' })
   stop(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('serverId', ParseIntPipe) serverId: number,
   ) {
     return this.deployService.stopDeploy(user.id, serverId);

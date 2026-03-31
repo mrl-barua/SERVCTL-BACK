@@ -101,7 +101,7 @@ export class MailService {
       });
     } catch (error) {
       this.logger.error(
-        `Failed to send password reset email to ${opts.to}`,
+        `Failed to send password reset email to ${opts.to}: ${(error as Error)?.message}`,
         (error as Error)?.stack,
       );
 
@@ -110,7 +110,7 @@ export class MailService {
       }
 
       this.logger.warn(
-        `Continuing without email delivery in non-production environment. Reset URL: ${opts.resetUrl}`,
+        `[DEV] Email delivery failed. Reset URL logged for manual testing: ${opts.resetUrl}`,
       );
     }
   }

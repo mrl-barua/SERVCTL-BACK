@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { Client, utils } from 'ssh2';
 import { CryptoService } from '../crypto/crypto.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,11 +38,14 @@ export class KeysService {
       throw new BadRequestException('Invalid SSH private key format.');
     }
 
-    const publicKey = key.getPublicSSH().toString('utf8').trim();
-    const fingerprint = key.getFingerprint('sha256').toString('base64');
+    const pubSSHBuffer = key.getPublicSSH();
+    const publicKey = pubSSHBuffer.toString('base64');
+    const fingerprint = createHash('sha256')
+      .update(pubSSHBuffer)
+      .digest('base64');
 
     return {
-      publicKey,
+      publicKey: `${key.type} ${publicKey}`,
       fingerprint: `SHA256:${fingerprint}`,
     };
   }

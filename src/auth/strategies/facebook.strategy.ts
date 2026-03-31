@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-facebook';
 import { AuthService } from '../auth.service';
+import { OAuthProfile } from '../types/jwt-payload.interface';
 
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
@@ -34,7 +35,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
     }
   }
 
-  async validate(accessToken: string, refreshToken: string, profile: any) {
+  async validate(accessToken: string, refreshToken: string, profile: OAuthProfile) {
     const firstName = profile.name?.givenName || '';
     const lastName = profile.name?.familyName || '';
 

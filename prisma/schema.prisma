@@ -23,6 +23,7 @@ model User {
   quickCommands       QuickCommand[]
   sshKeyVault         SshKeyVault[]
   passwordResetTokens PasswordResetToken[]
+  authCodes           AuthCode[]
 
   @@unique([provider, providerId])
 }
@@ -50,12 +51,15 @@ model Server {
   uptime        Float        @default(0)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
   owner         User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId       Int
   sshKeyVault   SshKeyVault? @relation(fields: [sshKeyVaultId], references: [id], onDelete: SetNull)
   quickCommands QuickCommand[]
 
   @@index([ownerId])
+  @@index([ownerId, status])
+  @@index([ownerId, env])
   @@index([sshKeyVaultId])
 }
 
@@ -101,4 +105,28 @@ model PasswordResetToken {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model AuthCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     Int
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

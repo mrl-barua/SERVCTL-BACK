@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PublicUser } from '../auth/types/jwt-payload.interface';
 import { CreateQuickCommandDto } from './dto/create-quick-command.dto';
 import { ReorderQuickCommandsDto } from './dto/reorder-quick-commands.dto';
 import { UpdateQuickCommandDto } from './dto/update-quick-command.dto';
@@ -33,7 +34,7 @@ export class QuickCommandsController {
   @Get()
   @ApiOperation({ summary: 'Get all quick commands for current user' })
   @ApiResponse({ status: 200, description: 'Quick commands list returned' })
-  findAll(@CurrentUser() user: any) {
+  findAll(@CurrentUser() user: PublicUser) {
     return this.service.findAll(user.id);
   }
 
@@ -43,7 +44,7 @@ export class QuickCommandsController {
   @ApiResponse({ status: 200, description: 'Filtered quick commands returned' })
   @ApiResponse({ status: 404, description: 'Server not found' })
   findForServer(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('serverId', ParseIntPipe) serverId: number,
   ) {
     return this.service.findForServer(user.id, serverId);
@@ -53,7 +54,7 @@ export class QuickCommandsController {
   @ApiOperation({ summary: 'Create a quick command' })
   @ApiResponse({ status: 201, description: 'Quick command created' })
   @ApiResponse({ status: 400, description: 'Invalid quick command payload' })
-  create(@CurrentUser() user: any, @Body() dto: CreateQuickCommandDto) {
+  create(@CurrentUser() user: PublicUser, @Body() dto: CreateQuickCommandDto) {
     return this.service.create(user.id, dto);
   }
 
@@ -61,7 +62,7 @@ export class QuickCommandsController {
   @ApiOperation({ summary: 'Reorder all quick commands' })
   @ApiResponse({ status: 200, description: 'Quick commands reordered' })
   @ApiResponse({ status: 400, description: 'Invalid reorder payload' })
-  reorder(@CurrentUser() user: any, @Body() dto: ReorderQuickCommandsDto) {
+  reorder(@CurrentUser() user: PublicUser, @Body() dto: ReorderQuickCommandsDto) {
     return this.service.reorder(user.id, dto);
   }
 
@@ -71,7 +72,7 @@ export class QuickCommandsController {
   @ApiResponse({ status: 200, description: 'Quick command updated' })
   @ApiResponse({ status: 404, description: 'Quick command not found' })
   update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: PublicUser,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateQuickCommandDto,
   ) {
@@ -84,7 +85,7 @@ export class QuickCommandsController {
   @ApiResponse({ status: 200, description: 'Quick command deleted' })
   @ApiResponse({ status: 400, description: 'System command cannot be deleted' })
   @ApiResponse({ status: 404, description: 'Quick command not found' })
-  remove(@CurrentUser() user: any, @Param('id', ParseIntPipe) id: number) {
+  remove(@CurrentUser() user: PublicUser, @Param('id', ParseIntPipe) id: number) {
     return this.service.remove(user.id, id);
   }
 }

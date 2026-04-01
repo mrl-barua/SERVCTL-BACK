@@ -39,8 +39,12 @@ RUN npx prisma generate
 # Copy compiled output from builder.
 COPY --from=builder /app/dist ./dist
 
-# Volume mount point for SQLite in local mode.
+# Volume mount point for data and auto-generated secrets.
 RUN mkdir -p /app/data
+
+# Copy entrypoint script for auto-secret generation.
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Run as a non-root user.
 RUN addgroup -g 1001 -S servctl && \
@@ -53,5 +57,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
   CMD wget -qO- http://localhost:3000/health || exit 1
 
-# Run migrations, fallback to db push for local SQLite bootstrap, then start server.
-CMD ["sh", "-c", "npx prisma migrate deploy || npx prisma db push; npm start"]
+# Auto-generate secrets, run migrations, then start server.
+CMD ["/app/docker-entrypoint.sh"]

@@ -20,6 +20,11 @@ interface DbSession {
   client: any;
   sshClient?: SSHClient;
   tunnelServer?: net.Server;
+  // Connection details for creating temp clients (PG per-database)
+  dbHost: string;
+  dbPort: number;
+  username: string;
+  password: string;
 }
 
 @Injectable()
@@ -173,6 +178,10 @@ export class DatabaseService implements OnModuleDestroy {
       client,
       sshClient,
       tunnelServer,
+      dbHost,
+      dbPort,
+      username: conn.username,
+      password,
     });
 
     return { type: conn.type, database: conn.databaseName };
@@ -253,7 +262,7 @@ export class DatabaseService implements OnModuleDestroy {
       case 'mysql':
         return this.getMysqlTables(session.client, database);
       case 'postgresql':
-        return this.getPgTables(session.client, database);
+        return this.getPgTables(session.client, database, session);
       case 'mongodb':
         return this.getMongoCollections(session.client, database);
       default:
@@ -271,9 +280,51 @@ export class DatabaseService implements OnModuleDestroy {
       case 'mysql':
         return this.getMysqlColumns(session.client, database, table);
       case 'postgresql':
-        return this.getPgColumns(session.client, database, table);
+        return this.getPgColumns(session.client, database, table, session);
       case 'mongodb':
         return this.getMongoFields(session.client, database, table);
+      default:
+        return [];
+    }
+  }
+
+  // ── VIEWS, TYPES, INDEXES ──────────────────────────────
+
+  async getViews(sessionId: string, database: string): Promise<string[]> {
+    const session = this.getSession(sessionId);
+    switch (session.type) {
+      case 'mysql':
+        return this.getMysqlViews(session.client, database);
+      case 'postgresql':
+        return this.getPgViews(session.client, database, session);
+      case 'mongodb':
+        return [];
+      default:
+        return [];
+    }
+  }
+
+  async getTypes(sessionId: string, database: string): Promise<string[]> {
+    const session = this.getSession(sessionId);
+    switch (session.type) {
+      case 'postgresql':
+        return this.getPgTypes(session.client, database, session);
+      default:
+        return [];
+    }
+  }
+
+  async getIndexes(
+    sessionId: string,
+    database: string,
+    table: string,
+  ): Promise<{ name: string; definition: string }[]> {
+    const session = this.getSession(sessionId);
+    switch (session.type) {
+      case 'mysql':
+        return this.getMysqlIndexes(session.client, database, table);
+      case 'postgresql':
+        return this.getPgIndexes(session.client, table, database, session);
       default:
         return [];
     }
@@ -488,28 +539,44 @@ export class DatabaseService implements OnModuleDestroy {
 
   private async getPgTables(
     client: any,
-    _database: string,
+    database: string,
+    session?: DbSession,
   ): Promise<string[]> {
-    const result = await client.query(
-      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
-    );
-    return result.rows.map((r: any) => r.tablename);
+    const pgClient = session
+      ? await this.getTempPgClient(session, database)
+      : client;
+    try {
+      const result = await pgClient.query(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
+      );
+      return result.rows.map((r: any) => r.tablename);
+    } finally {
+      if (pgClient !== client) pgClient.end();
+    }
   }
 
   private async getPgColumns(
     client: any,
-    _database: string,
+    database: string,
     table: string,
+    session?: DbSession,
   ) {
-    const result = await client.query(
-      `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public' ORDER BY ordinal_position`,
-      [table],
-    );
-    return result.rows.map((r: any) => ({
-      name: r.column_name,
-      type: r.data_type,
-      nullable: r.is_nullable === 'YES',
-    }));
+    const pgClient = session
+      ? await this.getTempPgClient(session, database)
+      : client;
+    try {
+      const result = await pgClient.query(
+        `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public' ORDER BY ordinal_position`,
+        [table],
+      );
+      return result.rows.map((r: any) => ({
+        name: r.column_name,
+        type: r.data_type,
+        nullable: r.is_nullable === 'YES',
+      }));
+    } finally {
+      if (pgClient !== client) pgClient.end();
+    }
   }
 
   // ── PRIVATE: MONGODB OPERATIONS ───────────────────────
@@ -639,6 +706,108 @@ export class DatabaseService implements OnModuleDestroy {
         : typeof value,
       nullable: true,
     }));
+  }
+
+  // ── PRIVATE: VIEWS ─────────────────────────────────────
+
+  private async getMysqlViews(client: any, database: string): Promise<string[]> {
+    const [rows] = await client.query(
+      `SELECT TABLE_NAME FROM information_schema.VIEWS WHERE TABLE_SCHEMA = ?`,
+      [database],
+    );
+    return rows.map((r: any) => r.TABLE_NAME);
+  }
+
+  private async getPgViews(client: any, database?: string, session?: DbSession): Promise<string[]> {
+    const pgClient = session && database
+      ? await this.getTempPgClient(session, database)
+      : client;
+    try {
+      const result = await pgClient.query(
+        `SELECT viewname FROM pg_views WHERE schemaname = 'public' ORDER BY viewname`,
+      );
+      return result.rows.map((r: any) => r.viewname);
+    } finally {
+      if (pgClient !== client) pgClient.end();
+    }
+  }
+
+  // ── PRIVATE: TYPES ────────────────────────────────────
+
+  private async getPgTypes(client: any, database?: string, session?: DbSession): Promise<string[]> {
+    const pgClient = session && database
+      ? await this.getTempPgClient(session, database)
+      : client;
+    try {
+      const result = await pgClient.query(
+        `SELECT t.typname FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname = 'public' AND t.typtype = 'e' ORDER BY t.typname`,
+      );
+      return result.rows.map((r: any) => r.typname);
+    } finally {
+      if (pgClient !== client) pgClient.end();
+    }
+  }
+
+  // ── PRIVATE: INDEXES ──────────────────────────────────
+
+  private async getMysqlIndexes(
+    client: any,
+    database: string,
+    table: string,
+  ): Promise<{ name: string; definition: string }[]> {
+    const [rows] = await client.query(
+      `SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY SEQ_IN_INDEX`,
+      [database, table],
+    );
+    const indexMap = new Map<string, string[]>();
+    for (const r of rows as any[]) {
+      const cols = indexMap.get(r.INDEX_NAME) || [];
+      cols.push(r.COLUMN_NAME);
+      indexMap.set(r.INDEX_NAME, cols);
+    }
+    return Array.from(indexMap.entries()).map(([name, cols]) => ({
+      name,
+      definition: cols.join(', '),
+    }));
+  }
+
+  private async getPgIndexes(
+    client: any,
+    table: string,
+    database?: string,
+    session?: DbSession,
+  ): Promise<{ name: string; definition: string }[]> {
+    const pgClient = session && database
+      ? await this.getTempPgClient(session, database)
+      : client;
+    try {
+      const result = await pgClient.query(
+        `SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = $1 ORDER BY indexname`,
+        [table],
+      );
+      return result.rows.map((r: any) => ({
+        name: r.indexname,
+        definition: r.indexdef,
+      }));
+    } finally {
+      if (pgClient !== client) pgClient.end();
+    }
+  }
+
+  // ── PRIVATE: TEMP PG CLIENT ────────────────────────────
+
+  private async getTempPgClient(session: DbSession, database: string): Promise<any> {
+    const { Client } = await import('pg');
+    const client = new Client({
+      host: session.dbHost,
+      port: session.dbPort,
+      user: session.username,
+      password: session.password,
+      database,
+      connectionTimeoutMillis: 10000,
+    });
+    await client.connect();
+    return client;
   }
 
   // ── PRIVATE: HELPERS ──────────────────────────────────

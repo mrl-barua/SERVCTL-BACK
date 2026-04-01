@@ -139,6 +139,57 @@ export class DatabaseGateway
     }
   }
 
+  @SubscribeMessage('database:views')
+  async listViews(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { database: string },
+  ) {
+    await this.authenticate(client);
+    try {
+      const views = await this.databaseService.getViews(client.id, body.database);
+      client.emit('database:views-list', { database: body.database, views });
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to list views';
+      client.emit('database:error', { message });
+      return { ok: false, message };
+    }
+  }
+
+  @SubscribeMessage('database:types')
+  async listTypes(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { database: string },
+  ) {
+    await this.authenticate(client);
+    try {
+      const types = await this.databaseService.getTypes(client.id, body.database);
+      client.emit('database:types-list', { database: body.database, types });
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to list types';
+      client.emit('database:error', { message });
+      return { ok: false, message };
+    }
+  }
+
+  @SubscribeMessage('database:indexes')
+  async listIndexes(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { database: string; table: string },
+  ) {
+    await this.authenticate(client);
+    try {
+      const indexes = await this.databaseService.getIndexes(client.id, body.database, body.table);
+      client.emit('database:indexes-list', { database: body.database, table: body.table, indexes });
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to list indexes';
+      client.emit('database:error', { message });
+      return { ok: false, message };
+    }
+  }
+
   private async authenticate(client: Socket) {
     const token = this.extractToken(client);
     const payload = this.jwtService.verify(token, {

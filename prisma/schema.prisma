@@ -28,6 +28,7 @@ model User {
   serverTags          ServerTag[]
   displayOrders       ServerDisplayOrder[]
   healthAlerts        HealthAlert[]
+  databaseConnections DatabaseConnection[]
 
   @@unique([provider, providerId])
 }
@@ -64,7 +65,8 @@ model Server {
   tagAssignments   ServerTagAssignment[]
   healthSnapshots  ServerHealthSnapshot[]
   displayOrders    ServerDisplayOrder[]
-  healthAlerts     HealthAlert[]
+  healthAlerts          HealthAlert[]
+  databaseConnections   DatabaseConnection[]
 
   @@index([ownerId])
   @@index([ownerId, status])
@@ -229,6 +231,28 @@ model HealthAlert {
   createdAt DateTime @default(now())
 
   @@index([serverId])
+  @@index([ownerId])
+}
+
+// ── Database Connections ───────────────────────────────
+
+model DatabaseConnection {
+  id           Int      @id @default(autoincrement())
+  name         String
+  type         String   // "mysql" | "postgresql" | "mongodb"
+  host         String
+  port         Int
+  databaseName String?
+  username     String
+  passwordEnc  String   // encrypted via CryptoService
+  useSSHTunnel Boolean  @default(false)
+  serverId     Int?
+  server       Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  ownerId      Int
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   @@index([ownerId])
 }
 

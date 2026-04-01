@@ -19,6 +19,7 @@ import { ServerHealthModule } from './server-health/server-health.module';
 import { ServerTagsModule } from './server-tags/server-tags.module';
 import { ServersModule } from './servers/servers.module';
 import { SshModule } from './ssh/ssh.module';
+import { DatabaseModule } from './database/database.module';
 import { TerminalModule } from './terminal/terminal.module';
 import { HealthController } from './health/health.controller';
 
@@ -63,6 +64,7 @@ import { HealthController } from './health/health.controller';
     DeployModule,
     SshModule,
     TerminalModule,
+    DatabaseModule,
     QuickCommandsModule,
     ServerDisplayOrderModule,
     ServerGroupsModule,
